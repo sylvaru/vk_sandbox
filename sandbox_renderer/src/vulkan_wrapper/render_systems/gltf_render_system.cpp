@@ -33,7 +33,7 @@ void GltfRenderSystem::init(
 
     m_iblLayout = VkSandboxDescriptorSetLayout::Builder{ device }
         .addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
-        //.addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
+        .addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
         //.addBinding(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
         .build();
 
@@ -53,12 +53,12 @@ void GltfRenderSystem::init(
         );
         // grab descriptors straight from the provider:
         auto brdfInfo = m_assets.getBRDFLUTDescriptor();
-       // auto irradianceInfo = m_assets.getIrradianceDescriptor();
+        auto irradianceInfo = m_assets.getIrradianceDescriptor();
        // auto prefilterInfo = m_assets.getPrefilteredDescriptor();
 
         VkSandboxDescriptorWriter(*m_iblLayout, descriptorPool)
             .writeImage(0, &brdfInfo)
-          //  .writeImage(1, &irradianceInfo)
+            .writeImage(1, &irradianceInfo)
           //  .writeImage(2, &prefilterInfo)
             .build(set);
 

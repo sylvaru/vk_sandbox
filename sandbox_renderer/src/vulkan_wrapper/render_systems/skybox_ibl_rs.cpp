@@ -142,7 +142,7 @@ void SkyboxIBLrenderSystem::createPipeline(VkRenderPass renderPass) {
 	config.renderPass = renderPass;
 	config.pipelineLayout = m_pipelineLayout;
 	config.depthStencilInfo.depthTestEnable = VK_TRUE;
-	config.depthStencilInfo.depthWriteEnable = VK_TRUE;
+	config.depthStencilInfo.depthWriteEnable = VK_FALSE;
 	config.depthStencilInfo.depthWriteEnable = VK_COMPARE_OP_LESS_OR_EQUAL;
 
 

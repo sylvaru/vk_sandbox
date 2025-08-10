@@ -52,7 +52,7 @@ public:
         return (it != m_objModelCache.end()) ? it->second : nullptr;
     }
 
-    std::shared_ptr<vkglTF::Model> getGLTFmodel(const std::string& name) const {
+    std::shared_ptr<vkglTF::Model> getGLTFmodel(const std::string& name) const override {
         auto it = m_gltfModelCache.find(name);
         return (it != m_gltfModelCache.end()) ? it->second : nullptr;
     }
@@ -96,6 +96,7 @@ public:
     VkDescriptorImageInfo getTextureDescriptor(const std::string& name) const override {
         return getTexture(name)->GetDescriptor();
     }
+    GLTFmodelHandle getSkyboxModel() const { return m_skyboxModel; }// make this override if necessary
 
     std::vector<std::string> listTextureNames()    const override {
         std::vector<std::string> keys;
@@ -117,6 +118,8 @@ private:
 
 	// caches
 	std::shared_ptr<VkSandboxTexture> lutBrdf, irradianceCube, prefilteredCube, environmentCube;
+
+    GLTFmodelHandle m_skyboxModel;
 
 	static void registerTextureIfNeeded(
 		const std::string& name,

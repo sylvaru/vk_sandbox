@@ -20,6 +20,11 @@
       ]
     },
     {
+      "type": "gltf",
+      "name": "cube",
+      "usage": "skybox"
+    },
+    {
       "name": "main_scene",
       "model": "sponza",
       "position": [ 0.0, 1.0, 0.0 ],

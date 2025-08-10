@@ -23,7 +23,8 @@
     {
       "type": "gltf",
       "name": "cube",
-      "path": "gltf/cube.gltf"
+      "path": "gltf/cube.gltf",
+      "usage": "skybox"
     },
     {
       "type": "gltf",
@@ -35,7 +36,8 @@
     {
       "name": "skybox_hdr",
       "path": "hdr/gcanyon_cube.ktx",
-      "format": "VK_FORMAT_R32G32B32A32_SFLOAT"
+      "format": "VK_FORMAT_R32G32B32A32_SFLOAT",
+      "environment": true
     }
   ]
 

@@ -2,7 +2,7 @@
 #include <stdexcept>
 #include <array>
 #include <cassert>
-
+#include <spdlog/spdlog.h>
 
 VkSandboxRenderer::VkSandboxRenderer(VkSandboxDevice& device, SandboxWindow& window)
     : m_device(device),
@@ -74,7 +74,31 @@ void VkSandboxRenderer::initializeSystems(IAssetProvider& provider) {
     VkDescriptorSetLayout globalLayout = m_globalLayout->getDescriptorSetLayout();
     VkSandboxDescriptorPool& pool = *m_pool;
 
+    // Create skybox system (note: only construct, do not init yet)
+    //auto skyboxSystem = std::make_unique<SkyboxIBLrenderSystem>(m_device, rp, globalLayout);
 
+    // Ask provider for the assets we need
+    // model
+    auto skyModel = provider.getGLTFmodel("cube"); // or the name you set in assets.json
+    if (skyModel) {
+        //skyboxSystem->setSkyboxModel(skyModel);
+    }
+    else {
+        spdlog::warn("No skybox model found in provider for 'cube'");
+    }
+
+    // cubemap descriptor (VkDescriptorImageInfo)
+    // choose the name you used in default_scene_assets.json (e.g. "skybox_hdr")
+    try {
+        VkDescriptorImageInfo cubemapDesc = provider.getCubemapDescriptor("skybox_hdr");
+        //skyboxSystem->setSkyboxCubemap(cubemapDesc);
+    }
+    catch (const std::exception& e) {
+        spdlog::warn("Skybox: cubemap not found: {}", e.what());
+    }
+
+    // push it into systems list, before we init them
+    //m_systems.push_back(std::move(skyboxSystem));
   
     m_systems.push_back(std::make_unique<ObjRenderSystem>(
         m_device,
