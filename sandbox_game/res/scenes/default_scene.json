@@ -32,8 +32,8 @@
       "scale": [ 2.0, 2.0, 2.0 ]
     },
     {
-      "name": "flight_helmet",
-      "model": "flight_helmet",
+      "name": "cerberus",
+      "model": "cerberus",
       "position": [ 0.0, 2.0, 0.0 ],
       "rotation": [ 0.0, 5.0, 0.0 ],
       "scale": [ 2.0, 2.0, 2.0 ]

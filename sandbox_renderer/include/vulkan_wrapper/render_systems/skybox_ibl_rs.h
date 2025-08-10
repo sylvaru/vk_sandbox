@@ -43,6 +43,21 @@ public:
         setCubemapTexture(desc); // <--- this is where we can handle descriptor set allocation
     }
 
+    // Set the skybox model (shared_ptr from asset provider)
+    void setSkyboxModel(std::shared_ptr<vkglTF::Model> model) {
+        m_skyboxModel = std::move(model);
+    }
+
+    // Set the cubemap descriptor image info (for descriptor writes)
+    void setSkyboxCubemap(const VkDescriptorImageInfo& cubemapDesc) {
+        m_skyboxImageInfo = cubemapDesc;
+    }
+
+    // Flag cubemap presence
+    void setHasCubemap(bool hasCubemap) {
+        m_bHasCubemap = hasCubemap;
+    }
+
     void createSkyboxDescriptorSetLayout();
     void allocateAndWriteSkyboxDescriptorSet();
 private:
@@ -50,16 +65,18 @@ private:
     void createPipeline(VkRenderPass renderPass);
 
 
-
+    std::shared_ptr<vkglTF::Model> m_skyboxModel;
+    VkDescriptorImageInfo m_skyboxImageInfo{};
+    bool m_bHasCubemap = false;
 
     VkDescriptorSetLayout m_skyboxLayout;
     VkSandboxDevice& m_device;
     std::unique_ptr<VkSandboxPipeline> m_pipeline;
     VkPipelineLayout m_pipelineLayout;
-    VkDescriptorImageInfo m_skyboxImageInfo{};
+
     std::unique_ptr<VkSandboxDescriptorSetLayout> m_skyboxSetLayout;
     VkDescriptorSet m_skyboxDescriptorSet;
 
     VkSandboxDescriptorPool* m_descriptorPool = nullptr;
-    bool m_bHasCubemap = false;
+
 };

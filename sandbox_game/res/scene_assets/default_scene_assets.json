@@ -32,6 +32,33 @@
       "path": "gltf/CesiumMan/glTF/CesiumMan.gltf"
     }
   ],
+  "textures": [
+    {
+      "name": "cerberus_albedo",
+      "path": "models/cerberus/albedo.ktx",
+      "format": "VK_FORMAT_R8G8B8A8_UNORM"
+    },
+    {
+      "name": "cerberus_normal",
+      "path": "models/cerberus/normal.ktx",
+      "format": "VK_FORMAT_R8G8B8A8_UNORM"
+    },
+    {
+      "name": "cerberus_ao",
+      "path": "models/cerberus/ao.ktx",
+      "format": "VK_FORMAT_R8_UNORM"
+    },
+    {
+      "name": "cerberus_metallic",
+      "path": "models/cerberus/metallic.ktx",
+      "format": "VK_FORMAT_R8_UNORM"
+    },
+    {
+      "name": "cerberus_roughness",
+      "path": "models/cerberus/roughness.ktx",
+      "format": "VK_FORMAT_R8_UNORM"
+    }
+  ],
   "cubemaps": [
     {
       "name": "skybox_hdr",
@@ -41,5 +68,5 @@
     }
   ]
 
-  
+
 }

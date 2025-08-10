@@ -34,7 +34,7 @@ void GltfRenderSystem::init(
     m_iblLayout = VkSandboxDescriptorSetLayout::Builder{ device }
         .addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
         .addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
-        //.addBinding(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
+        .addBinding(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
         .build();
 
 
@@ -54,12 +54,12 @@ void GltfRenderSystem::init(
         // grab descriptors straight from the provider:
         auto brdfInfo = m_assets.getBRDFLUTDescriptor();
         auto irradianceInfo = m_assets.getIrradianceDescriptor();
-       // auto prefilterInfo = m_assets.getPrefilteredDescriptor();
+        auto prefilterInfo = m_assets.getPrefilteredDescriptor();
 
         VkSandboxDescriptorWriter(*m_iblLayout, descriptorPool)
             .writeImage(0, &brdfInfo)
             .writeImage(1, &irradianceInfo)
-          //  .writeImage(2, &prefilterInfo)
+            .writeImage(2, &prefilterInfo)
             .build(set);
 
         m_iblDescriptorSets[i] = set;
@@ -168,15 +168,7 @@ void GltfRenderSystem::createPipeline(VkRenderPass renderPass) {
 }
 
 
-
 void GltfRenderSystem::render(FrameInfo& frame) {
-    vkCmdBindDescriptorSets(
-        frame.commandBuffer,
-        VK_PIPELINE_BIND_POINT_GRAPHICS,
-        m_pipelineLayout,
-        0, 1,
-        &frame.globalDescriptorSet,
-        0, nullptr);
 
     for (auto& [id, go] : frame.gameObjects) {
         auto baseModel = go->getModel();
@@ -192,9 +184,11 @@ void GltfRenderSystem::render(FrameInfo& frame) {
 
             glm::mat4 world = go->getTransform().mat4() * node->getMatrix();
             glm::mat4 normalMat = glm::transpose(glm::inverse(world));
+
             memcpy(node->mesh->uniformBuffer.mapped, &world, sizeof(world));
             memcpy((char*)node->mesh->uniformBuffer.mapped + sizeof(world), &normalMat, sizeof(normalMat));
 
+            // Bind the mesh uniform buffer descriptor set (usually at set 1)
             vkCmdBindDescriptorSets(
                 frame.commandBuffer,
                 VK_PIPELINE_BIND_POINT_GRAPHICS,
@@ -203,27 +197,43 @@ void GltfRenderSystem::render(FrameInfo& frame) {
                 &node->mesh->uniformBuffer.descriptorSet,
                 0, nullptr);
 
-            const auto& mat = node->mesh->primitives[0]->material;
-            switch (mat.alphaMode) {
-            case vkglTF::Material::ALPHAMODE_OPAQUE:
-                m_opaquePipeline->bind(frame.commandBuffer);
-                break;
-            case vkglTF::Material::ALPHAMODE_MASK:
-                m_maskPipeline->bind(frame.commandBuffer);
-                break;
-            case vkglTF::Material::ALPHAMODE_BLEND:
-            default:
-                m_blendPipeline->bind(frame.commandBuffer);
-                break;
-            }
+            // Now get the material descriptor set for this primitive
+            for (auto* primitive : node->mesh->primitives) {
+                VkDescriptorSet materialDescriptorSet = primitive->material.descriptorSet;
 
-            model->drawNode(
-                node,
-                frame.commandBuffer,
-                vkglTF::RenderFlags::BindImages,
-                m_pipelineLayout,
-                2 // bindImageSet
-            );
+                std::array<VkDescriptorSet, 4> sets = {
+                frame.globalDescriptorSet,                   // set 0
+                node->mesh->uniformBuffer.descriptorSet,    // set 1
+                materialDescriptorSet,                        // set 2
+                m_iblDescriptorSets[frame.frameIndex]       // set 3
+                };
+
+                vkCmdBindDescriptorSets(
+                    frame.commandBuffer,
+                    VK_PIPELINE_BIND_POINT_GRAPHICS,
+                    m_pipelineLayout,
+                    0, // first set = 0
+                    static_cast<uint32_t>(sets.size()),
+                    sets.data(),
+                    0,
+                    nullptr);
+
+                // Choose pipeline based on alpha mode
+                switch (primitive->material.alphaMode) {
+                case vkglTF::Material::ALPHAMODE_OPAQUE:
+                    m_opaquePipeline->bind(frame.commandBuffer);
+                    break;
+                case vkglTF::Material::ALPHAMODE_MASK:
+                    m_maskPipeline->bind(frame.commandBuffer);
+                    break;
+                case vkglTF::Material::ALPHAMODE_BLEND:
+                default:
+                    m_blendPipeline->bind(frame.commandBuffer);
+                    break;
+                }
+
+                model->drawNode(node, frame.commandBuffer, vkglTF::RenderFlags::BindImages, m_pipelineLayout, 2);
+            }
         }
     }
 }

@@ -29,6 +29,13 @@ public:
 		VkImageLayout initialLayout
 	);
 
+    std::shared_ptr<VkSandboxTexture> loadTexture(
+        const std::string& name,
+        const std::string& filename,
+        VkFormat format,
+        VkImageUsageFlags usageFlags,
+        VkImageLayout imageLayout);
+
     void generateBRDFlut();
     void generateIrradianceMap();
     void generatePrefilteredEnvMap();

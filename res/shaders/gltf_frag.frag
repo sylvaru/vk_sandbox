@@ -3,6 +3,9 @@
 
 layout(set = 2, binding = 0) uniform sampler2D materialSampler;
 layout(set = 2, binding = 1) uniform sampler2D normalSampler;
+layout(set = 3, binding = 0) uniform sampler2D   brdfLUT;
+layout(set = 3, binding = 1) uniform samplerCube irradianceMap;
+layout(set = 3, binding = 2) uniform samplerCube prefilteredMap;
 
 layout(location = 0) in vec3 inNormal;
 layout(location = 1) in vec4 inColor;

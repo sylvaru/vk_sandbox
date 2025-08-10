@@ -9,6 +9,7 @@
 
 #include "vulkan_wrapper/vulkan_gltf.h"
 #include "vulkan_wrapper/vulkan_renderer.h"
+#include "vulkan_wrapper/render_systems/gltf_render_system.h"
 
 // STD
 #include <memory>
@@ -36,6 +37,8 @@ public:
 		size_t frameCount)override;
 
 	void render(FrameInfo& frame) override;
+
+
 private:
 	void createPipelineLayout(VkDescriptorSetLayout globalSetLayout);
 	void createPipeline(VkRenderPass renderPass);
@@ -55,5 +58,7 @@ private:
 
 	std::unique_ptr<VkSandboxDescriptorSetLayout> m_iblLayout;
 	std::vector<VkDescriptorSet>				  m_iblDescriptorSets;
+
+
 };
 
