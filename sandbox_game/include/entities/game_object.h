@@ -58,7 +58,9 @@ public:
     void setModel(const std::shared_ptr<IModel>& model) {
         m_pModel = model;
     }
-
+    std::string getCubemapTextureName() const override {
+        return m_cubemapTextureName; // your stored string
+    }
 
     TransformComponent m_transform;
     std::shared_ptr<IModel> m_pModel;

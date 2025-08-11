@@ -47,21 +47,13 @@ void SandboxScene::loadSceneFile(const std::string& fileName) {
     json sceneJson;
     inFile >> sceneJson;
 
-
-    // Parse skybox cubemap name (if present)
-    if (sceneJson.contains("skybox")) {
-        m_skyboxCubemapName = sceneJson["skybox"].get<std::string>();
-        spdlog::info("Scene specifies skybox: '{}'", m_skyboxCubemapName);
-    }
-    else {
-        spdlog::warn("No skybox specified in scene file '{}', using default '{}'", fileName, m_skyboxCubemapName);
-    }
+    m_skyboxCubemapName.clear();
 
     spdlog::info("Loading scene file: {} ({})", fileName, path);
 
+    // Camera setup
     if (sceneJson.contains("camera")) {
         const auto& camJson = sceneJson["camera"];
-
         auto pos = camJson.value("position", std::vector<float>{0.f, 0.f, 0.f});
         auto rot = camJson.value("rotation", std::vector<float>{0.f, 0.f, 0.f});
 
@@ -76,8 +68,12 @@ void SandboxScene::loadSceneFile(const std::string& fileName) {
             pos[0], pos[1], pos[2], rot[0], rot[1], rot[2]);
     }
 
+    // Clear previous objects before loading new
+    m_gameObjects.clear();
+
     for (auto& objJson : sceneJson["objects"]) {
 
+        // Special spinning lights case
         if (objJson.value("special", "") == "lights") {
             int count = objJson.value("count", 1);
             float radius = objJson.value("radius", 4.8f);
@@ -93,11 +89,11 @@ void SandboxScene::loadSceneFile(const std::string& fileName) {
                     radius * std::sin(angle)
                 };
 
-                auto colorArray = colorsJson[i % colorsJson.size()];
+                const auto& colorArray = colorsJson[i % colorsJson.size()];
                 glm::vec3 color = {
-                    colorArray[0],
-                    colorArray[1],
-                    colorArray[2]
+                    colorArray[0].get<float>(),
+                    colorArray[1].get<float>(),
+                    colorArray[2].get<float>()
                 };
 
                 auto light = SandboxGameObject::makePointLight(intensity, 0.1f, color);
@@ -108,20 +104,21 @@ void SandboxScene::loadSceneFile(const std::string& fileName) {
                 m_gameObjects.emplace(light->getId(), std::move(light));
             }
 
-            continue; // Skip normal parsing for this object
+            continue; // skip normal parsing for this object
         }
 
-       
+        // Normal GameObject
         auto gameObject = SandboxGameObject::createGameObject();
 
+        // Model loading
         if (auto it = objJson.find("model"); it != objJson.end()) {
             const std::string modelName = it->get<std::string>();
 
-            // try OBJ first
+            // Try OBJ model first
             if (auto objModel = m_assetManager.getOBJModel(modelName)) {
                 gameObject->setModel(objModel);
             }
-            // then try GLTF
+            // Otherwise try glTF model
             else if (auto gltfModel = m_assetManager.getGLTFmodel(modelName)) {
                 gameObject->setModel(gltfModel);
             }
@@ -130,7 +127,7 @@ void SandboxScene::loadSceneFile(const std::string& fileName) {
             }
         }
 
-
+        // Transform
         auto pos = objJson.value("position", std::vector<float>{0.f, 0.f, 0.f});
         auto rot = objJson.value("rotation", std::vector<float>{0.f, 0.f, 0.f});
         auto scl = objJson.value("scale", std::vector<float>{1.f, 1.f, 1.f});
@@ -145,32 +142,33 @@ void SandboxScene::loadSceneFile(const std::string& fileName) {
             rot[0], rot[1], rot[2],
             scl[0], scl[1], scl[2]);
 
-
-     
-
-        bool isSkybox = objJson.value("skybox", false);
+        // Check skybox usage
+        bool isSkybox = false;
+        if (auto usageIt = objJson.find("usage"); usageIt != objJson.end()) {
+            if (usageIt->get<std::string>() == "skybox") {
+                isSkybox = true;
+            }
+        }
         gameObject->m_bIsSkybox = isSkybox;
 
+        // Optional cubemap texture name
         if (objJson.contains("cubemap")) {
-
             gameObject->m_cubemapTextureName = objJson["cubemap"].get<std::string>();
         }
 
-        // Store or fallback cubemap texture name on scene-wide variable
+        // If skybox, set as the scene's skybox object
         if (isSkybox) {
-            if (!gameObject->m_cubemapTextureName.empty()) {
-                m_skyboxCubemapName = gameObject->m_cubemapTextureName;
-            }
             setSkyboxObject(gameObject);
-            spdlog::info("GameObject '{}' marked as skybox with cubemap '{}'", objJson.value("name", "unnamed"), m_skyboxCubemapName);
+            spdlog::info("GameObject '{}' marked as skybox with cubemap '{}'", objJson.value("name", "unnamed"), gameObject->m_cubemapTextureName);
         }
 
-        // Store in map
+        // Insert into map (store as base interface)
         m_gameObjects.emplace(gameObject->getId(), std::static_pointer_cast<IGameObject>(gameObject));
     }
 
     spdlog::info("Scene '{}' loaded. Total objects: {}", fileName, m_gameObjects.size());
 }
+
 
 std::optional<std::reference_wrapper<SandboxGameObject>> SandboxScene::getSkyboxObject() {
     if (!m_skyboxId) return std::nullopt;

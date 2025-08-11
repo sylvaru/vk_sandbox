@@ -444,11 +444,11 @@ void vkglTF::Texture::fromglTfImage(tinygltf::Image& gltfimage, std::string path
 /*
 	glTF material
 */
-void  vkglTF::Material::createDescriptorSet(
+void vkglTF::Material::createDescriptorSet(
 	VkDescriptorPool descriptorPool,
 	VkDescriptorSetLayout descriptorSetLayout,
 	uint32_t descriptorBindingFlags,
-	 vkglTF::Texture* fallbackTexture
+	vkglTF::Texture* fallbackTexture
 ) {
 	// Allocate descriptor set
 	VkDescriptorSetAllocateInfo allocInfo{};
@@ -458,54 +458,47 @@ void  vkglTF::Material::createDescriptorSet(
 	allocInfo.pSetLayouts = &descriptorSetLayout;
 	VK_CHECK_RESULT(vkAllocateDescriptorSets(device->m_logicalDevice, &allocInfo, &descriptorSet));
 
-	std::vector<VkWriteDescriptorSet> writeDescriptorSets;
+	// Prepare image infos with fallback
+	VkDescriptorImageInfo baseColorImageInfo = (baseColorTexture && (descriptorBindingFlags & DescriptorBindingFlags::ImageBaseColor))
+		? baseColorTexture->descriptor : fallbackTexture->descriptor;
 
-	// Base Color Texture
-	if ((descriptorBindingFlags &  DescriptorBindingFlags::ImageBaseColor) && baseColorTexture) {
-		VkDescriptorImageInfo baseColorImageInfo = baseColorTexture->descriptor;
-		writeDescriptorSets.push_back({
-			VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,       // sType
-			nullptr,                                      // pNext
-			descriptorSet,                                // dstSet
-			0,                                            // dstBinding (base color = 0)
-			0,                                            // dstArrayElement
-			1,                                            // descriptorCount
-			VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,    // descriptorType
-			&baseColorImageInfo,                          // pImageInfo
-			nullptr, nullptr                              // pBufferInfo, pTexelBufferView
-			});
-	}
+	VkDescriptorImageInfo normalImageInfo = (normalTexture && (descriptorBindingFlags & DescriptorBindingFlags::ImageNormalMap))
+		? normalTexture->descriptor : fallbackTexture->descriptor;
 
-	// Normal Map Texture
-	if (descriptorBindingFlags &  DescriptorBindingFlags::ImageNormalMap) {
-		// Always bind something
-		 Texture* tex = (normalTexture != nullptr) ? normalTexture : fallbackTexture;
-		VkDescriptorImageInfo normalImageInfo = tex->descriptor;
+	VkDescriptorImageInfo metallicRoughnessImageInfo = (metallicRoughnessTexture && (descriptorBindingFlags & DescriptorBindingFlags::ImageMetallicMap))
+		? metallicRoughnessTexture->descriptor : fallbackTexture->descriptor;
 
-		writeDescriptorSets.push_back({
-			VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-			nullptr,
-			descriptorSet,
-			1,  // binding = 1 for normal map
-			0,
-			1,
-			VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-			&normalImageInfo,
-			nullptr, nullptr
-			});
-	}
+	// If you have a separate roughness texture, bind it here, otherwise fallback
+	VkDescriptorImageInfo roughnessImageInfo = fallbackTexture->descriptor;
 
-	// Update descriptors
-	if (!writeDescriptorSets.empty()) {
-		vkUpdateDescriptorSets(
-			device->m_logicalDevice,
-			static_cast<uint32_t>(writeDescriptorSets.size()),
-			writeDescriptorSets.data(),
-			0, nullptr
-		);
-	}
+	VkDescriptorImageInfo occlusionImageInfo = (occlusionTexture && (descriptorBindingFlags & DescriptorBindingFlags::ImageAOMap))
+		? occlusionTexture->descriptor : fallbackTexture->descriptor;
+
+	std::array<VkWriteDescriptorSet, 5> writeDescriptorSets{};
+
+	writeDescriptorSets[0] = {
+		VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, nullptr, descriptorSet, 0, 0, 1,
+		VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &baseColorImageInfo, nullptr, nullptr
+	};
+	writeDescriptorSets[1] = {
+		VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, nullptr, descriptorSet, 1, 0, 1,
+		VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &normalImageInfo, nullptr, nullptr
+	};
+	writeDescriptorSets[2] = {
+		VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, nullptr, descriptorSet, 2, 0, 1,
+		VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &metallicRoughnessImageInfo, nullptr, nullptr
+	};
+	writeDescriptorSets[3] = {
+		VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, nullptr, descriptorSet, 3, 0, 1,
+		VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &roughnessImageInfo, nullptr, nullptr
+	};
+	writeDescriptorSets[4] = {
+		VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, nullptr, descriptorSet, 4, 0, 1,
+		VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &occlusionImageInfo, nullptr, nullptr
+	};
+
+	vkUpdateDescriptorSets(device->m_logicalDevice, static_cast<uint32_t>(writeDescriptorSets.size()), writeDescriptorSets.data(), 0, nullptr);
 }
-
 
 
 /*
@@ -1295,7 +1288,7 @@ void  vkglTF::Model::loadFromFile(std::string filename, VkSandboxDevice* device,
 		poolSizes.push_back({ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, uboCount });
 	}
 
-	uint32_t samplerCount = materialCount * 2;  // baseColor + normal per material
+	uint32_t samplerCount = materialCount * 5;  // baseColor + normal per material
 	if (samplerCount > 0) {
 		poolSizes.push_back({ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, samplerCount });
 	}
@@ -1333,8 +1326,8 @@ void  vkglTF::Model::loadFromFile(std::string filename, VkSandboxDevice* device,
 				// Always push exactly two bindings:
 				//  • binding 0 = base-color sampler
 				//  • binding 1 = normal-map sampler
-				std::array<VkDescriptorSetLayoutBinding, 2> setLayoutBindings = {
-					// binding 0 → base-color
+				std::array<VkDescriptorSetLayoutBinding, 5> setLayoutBindings = {
+					// binding 0 → baseColor (albedo)
 					vkinit::descriptorSetLayoutBinding(
 						VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
 						VK_SHADER_STAGE_FRAGMENT_BIT,
@@ -1345,18 +1338,27 @@ void  vkglTF::Model::loadFromFile(std::string filename, VkSandboxDevice* device,
 							VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
 							VK_SHADER_STAGE_FRAGMENT_BIT,
 							/*binding=*/ 1
+						),
+						// binding 2 → metallic map
+						vkinit::descriptorSetLayoutBinding(
+							VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+							VK_SHADER_STAGE_FRAGMENT_BIT,
+							/*binding=*/ 2
+						),
+						// binding 3 → roughness map
+						vkinit::descriptorSetLayoutBinding(
+							VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+							VK_SHADER_STAGE_FRAGMENT_BIT,
+							/*binding=*/ 3
+						),
+						// binding 4 → ambient occlusion map
+						vkinit::descriptorSetLayoutBinding(
+							VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+							VK_SHADER_STAGE_FRAGMENT_BIT,
+							/*binding=*/ 4
 						)
 				};
-				//std::array<VkDescriptorSetLayoutBinding, 4> setLayoutBindings = {
-				//	// baseColor
-				//	vkinit::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 0),
-				//	// normal
-				//	vkinit::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 1),
-				//	// metallic-roughness
-				//	vkinit::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 2),
-				//	// ambient occlusion
-				//	vkinit::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 3)
-				//};
+
 
 				VkDescriptorSetLayoutCreateInfo descriptorLayoutCI{};
 				descriptorLayoutCI.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;

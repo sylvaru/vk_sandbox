@@ -15,7 +15,9 @@ public:
     bool isMouseButtonPressed(int button) const override;
     void getMouseDelta(double& dx, double& dy) override;
 
-
+    void* getWindowUserPointer()const override {
+        return glfwGetWindowUserPointer(m_pwindow);
+    }
 
 
     inline void setUserPointer(void* ptr) override{
@@ -26,7 +28,7 @@ public:
         m_keyCallback = std::move(callback);
     }
 
-    bool isWindowShouldClose() const {
+    bool isWindowShouldClose() const override{
         return glfwWindowShouldClose(m_pwindow);
     }
 

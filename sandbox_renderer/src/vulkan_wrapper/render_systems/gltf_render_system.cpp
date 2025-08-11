@@ -1,5 +1,5 @@
 #include"vulkan_wrapper/render_systems/gltf_render_system.h"
-#include <stdexcept>
+#include <spdlog/spdlog.h>
 
 
 
@@ -167,8 +167,8 @@ void GltfRenderSystem::createPipeline(VkRenderPass renderPass) {
         m_device, vertSpv, fragSpv, blendConfig);
 }
 
-
 void GltfRenderSystem::render(FrameInfo& frame) {
+    static bool warnedThisFrame = false;
 
     for (auto& [id, go] : frame.gameObjects) {
         auto baseModel = go->getModel();
@@ -188,37 +188,41 @@ void GltfRenderSystem::render(FrameInfo& frame) {
             memcpy(node->mesh->uniformBuffer.mapped, &world, sizeof(world));
             memcpy((char*)node->mesh->uniformBuffer.mapped + sizeof(world), &normalMat, sizeof(normalMat));
 
-            // Bind the mesh uniform buffer descriptor set (usually at set 1)
-            vkCmdBindDescriptorSets(
-                frame.commandBuffer,
-                VK_PIPELINE_BIND_POINT_GRAPHICS,
-                m_pipelineLayout,
-                1, 1,
-                &node->mesh->uniformBuffer.descriptorSet,
-                0, nullptr);
-
-            // Now get the material descriptor set for this primitive
             for (auto* primitive : node->mesh->primitives) {
                 VkDescriptorSet materialDescriptorSet = primitive->material.descriptorSet;
 
+                if (materialDescriptorSet == VK_NULL_HANDLE) {
+                    if (!warnedThisFrame) {
+                        //spdlog::warn("Primitive material descriptor set is null, skipping draw.");
+                        warnedThisFrame = true;
+                    }
+                    
+                    continue;
+                }
+
+                VkDescriptorSet iblSet = m_iblDescriptorSets[frame.frameIndex];
+                if (iblSet == VK_NULL_HANDLE) {
+                    spdlog::warn("IBL descriptor set is null, skipping draw.");
+                    continue;
+                }
+
                 std::array<VkDescriptorSet, 4> sets = {
-                frame.globalDescriptorSet,                   // set 0
-                node->mesh->uniformBuffer.descriptorSet,    // set 1
-                materialDescriptorSet,                        // set 2
-                m_iblDescriptorSets[frame.frameIndex]       // set 3
+                    frame.globalDescriptorSet,               // set 0
+                    node->mesh->uniformBuffer.descriptorSet,// set 1
+                    materialDescriptorSet,                   // set 2
+                    iblSet                                  // set 3
                 };
 
                 vkCmdBindDescriptorSets(
                     frame.commandBuffer,
                     VK_PIPELINE_BIND_POINT_GRAPHICS,
                     m_pipelineLayout,
-                    0, // first set = 0
+                    0,
                     static_cast<uint32_t>(sets.size()),
                     sets.data(),
                     0,
                     nullptr);
 
-                // Choose pipeline based on alpha mode
                 switch (primitive->material.alphaMode) {
                 case vkglTF::Material::ALPHAMODE_OPAQUE:
                     m_opaquePipeline->bind(frame.commandBuffer);
@@ -233,6 +237,7 @@ void GltfRenderSystem::render(FrameInfo& frame) {
                 }
 
                 model->drawNode(node, frame.commandBuffer, vkglTF::RenderFlags::BindImages, m_pipelineLayout, 2);
+                warnedThisFrame = false;
             }
         }
     }

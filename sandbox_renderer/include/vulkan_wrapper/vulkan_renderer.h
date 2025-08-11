@@ -3,6 +3,7 @@
 #include <memory>
 #include "interfaces/renderer_i.h"
 #include "interfaces/render_system_i.h"
+#include "interfaces/scene_i.h"
 #include "interfaces/asset_provider_i.h"
 #include "render_systems/obj_render_system.h"
 #include "render_systems/gltf_render_system.h"
@@ -37,7 +38,7 @@ public:
 	void beginSwapChainRenderPass(FrameContext& frame)override;
 	void endSwapChainRenderPass(FrameContext& frame)override;
 
-	void initializeSystems(IAssetProvider& assets);
+	void initializeSystems(IAssetProvider& assets, IScene& scene);
 	void initSkyboxSystem();
 	void renderSystems(FrameInfo& frame)override;
 

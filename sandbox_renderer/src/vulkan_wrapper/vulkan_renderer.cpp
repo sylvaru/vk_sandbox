@@ -18,8 +18,10 @@ VkSandboxRenderer::~VkSandboxRenderer() {
     freeCommandBuffers();
 }
 void VkSandboxRenderer::createGlobalDescriptorObjects() {
+
+
     m_pool = VkSandboxDescriptorPool::Builder{ m_device }
-        .setMaxSets(FrameCount + 3 /*texture+sky+ibl*/)
+        .setMaxSets(FrameCount + 40 /*texture+sky+ibl*/)
         .addPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, FrameCount)
         .addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 10)
         .setPoolFlags(VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT)
@@ -67,36 +69,52 @@ void VkSandboxRenderer::allocateGlobalDescriptors() {
     
 }
 
-void VkSandboxRenderer::initializeSystems(IAssetProvider& provider) {
+void VkSandboxRenderer::initializeSystems(IAssetProvider& provider, IScene& scene) {
     // grab the things every system will need
     VkRenderPass rp = m_swapchain->getRenderPass();
     VkDescriptorSetLayout globalLayout = m_globalLayout->getDescriptorSetLayout();
     VkSandboxDescriptorPool& pool = *m_pool;
 
-    // Create and setup skybox IBL render system
     auto skyboxSystem = std::make_unique<SkyboxIBLrenderSystem>(m_device, rp, globalLayout);
 
-    // Try to set skybox model
-    auto skyModel = provider.getGLTFmodel("cube");
-    if (skyModel) {
-        skyboxSystem->setSkyboxModel(skyModel);
+    // Try to get skybox object from scene
+    if (auto skyboxOpt = scene.getSkyboxObject()) {
+        IGameObject& skyboxObj = skyboxOpt.value().get();
+
+        // Get and set model
+        if (auto skyboxModelBase = provider.getGLTFmodel("cube")) {
+            skyboxSystem->setSkyboxModel(skyboxModelBase);
+        }
+        else {
+            spdlog::warn("Skybox object has no model");
+        }
+
+        // Get and set cubemap
+        auto cubemapName = skyboxObj.getCubemapTextureName();
+        try {
+            VkDescriptorImageInfo cubemapDesc = provider.getCubemapDescriptor(cubemapName);
+
+            spdlog::info("[Renderer] got cubemapDesc: view=0x{:x}, sampler=0x{:x}, layout={}",
+                (uintptr_t)cubemapDesc.imageView,
+                (uintptr_t)cubemapDesc.sampler,
+                (int)cubemapDesc.imageLayout);
+
+            if (cubemapDesc.imageView == VK_NULL_HANDLE || cubemapDesc.sampler == VK_NULL_HANDLE) {
+                spdlog::error("[Renderer] cubemap descriptor has null view or sampler! This will produce garbage in shader.");
+            }
+
+            skyboxSystem->setCubemapTexture(cubemapDesc);
+
+        }
+        catch (const std::exception& e) {
+            spdlog::warn("Skybox cubemap '{}' not found: {}", cubemapName, e.what());
+        }
     }
     else {
-        spdlog::warn("No skybox model found in provider for 'cube'");
+        spdlog::warn("No skybox object found in scene");
     }
 
-    // Try to set skybox cubemap descriptor
-    try {
-        VkDescriptorImageInfo cubemapDesc = provider.getCubemapDescriptor("skybox_hdr");
-        skyboxSystem->setSkyboxCubemap(cubemapDesc);
-        skyboxSystem->setHasCubemap(true);  // flag to indicate cubemap is ready
-    }
-    catch (const std::exception& e) {
-        spdlog::warn("Skybox: cubemap not found: {}", e.what());
-        skyboxSystem->setHasCubemap(false);
-    }
-
-    // Insert skybox system FIRST to render first
+    // Insert skybox system FIRST
     m_systems.push_back(std::move(skyboxSystem));
 
     m_systems.push_back(std::make_unique<ObjRenderSystem>(

@@ -41,7 +41,7 @@ void SkyboxIBLrenderSystem::createSkyboxDescriptorSetLayout() {
 			VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
 			VK_SHADER_STAGE_FRAGMENT_BIT,
 			1,
-			0) // no binding flags needed here
+			0)
 		.build();
 }
 
@@ -96,6 +96,13 @@ void SkyboxIBLrenderSystem::render(FrameInfo& frameInfo) {
 		frameInfo.globalDescriptorSet,
 		m_skyboxDescriptorSet
 	};
+
+	// Defensive check before binding
+	for (auto set : sets) {
+		assert(set != VK_NULL_HANDLE && "Descriptor set handle is null!");
+	}
+
+
 	vkCmdBindDescriptorSets(
 		frameInfo.commandBuffer,
 		VK_PIPELINE_BIND_POINT_GRAPHICS,
@@ -109,7 +116,14 @@ void SkyboxIBLrenderSystem::render(FrameInfo& frameInfo) {
 
 
 
-	auto model = skyObj.getModel();
+	std::shared_ptr<IModel> model = m_skyboxModel;
+
+
+	if (!model && skyOpt.has_value()) {
+		IGameObject& skyObj = skyOpt->get();
+		model = skyObj.getModel();
+	}
+
 	if (model) {
 		model->bind(frameInfo.commandBuffer);
 		model->gltfDraw(frameInfo.commandBuffer);

@@ -28,14 +28,12 @@ public:
         VkSandboxDescriptorPool& descriptorPool,
         size_t frameCount)override;
 
-    // Call this inside your scene render loop, after global descriptors are bound
     void render(FrameInfo& frameInfo) override;
 
 
     inline void setCubemapTexture(const VkDescriptorImageInfo& info) {
         m_skyboxImageInfo = info;
         m_bHasCubemap = true;
-        allocateAndWriteSkyboxDescriptorSet();
     }
 
     inline void setCubemapByName(const std::string& name, const IAssetProvider& provider) {
@@ -43,20 +41,7 @@ public:
         setCubemapTexture(desc); // <--- this is where we can handle descriptor set allocation
     }
 
-    // Set the skybox model (shared_ptr from asset provider)
-    void setSkyboxModel(std::shared_ptr<vkglTF::Model> model) {
-        m_skyboxModel = std::move(model);
-    }
-
-    // Set the cubemap descriptor image info (for descriptor writes)
-    void setSkyboxCubemap(const VkDescriptorImageInfo& cubemapDesc) {
-        m_skyboxImageInfo = cubemapDesc;
-    }
-
-    // Flag cubemap presence
-    void setHasCubemap(bool hasCubemap) {
-        m_bHasCubemap = hasCubemap;
-    }
+    void setSkyboxModel(const std::shared_ptr<IModel>& model) { m_skyboxModel = model; }
 
     void createSkyboxDescriptorSetLayout();
     void allocateAndWriteSkyboxDescriptorSet();
@@ -65,7 +50,6 @@ private:
     void createPipeline(VkRenderPass renderPass);
 
 
-    std::shared_ptr<vkglTF::Model> m_skyboxModel;
     VkDescriptorImageInfo m_skyboxImageInfo{};
     bool m_bHasCubemap = false;
 
@@ -79,4 +63,5 @@ private:
 
     VkSandboxDescriptorPool* m_descriptorPool = nullptr;
 
+    std::shared_ptr<IModel> m_skyboxModel;
 };

@@ -2,6 +2,7 @@
 #include "interfaces/render_system_i.h"
 #include "interfaces/asset_provider_i.h"
 #include "interfaces/game_object_i.h"
+#include "interfaces/model_i.h"
 
 #include "vulkan_wrapper/vulkan_device.h"
 #include "vulkan_wrapper/vulkan_pipeline.h"

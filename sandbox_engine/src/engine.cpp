@@ -5,7 +5,6 @@
 #include <thread>
 #include <chrono>
 
-#include <cassert>
 
 SandboxEngine::SandboxEngine() {
 	m_assetManager.preloadGlobalAssets();
@@ -13,7 +12,7 @@ SandboxEngine::SandboxEngine() {
 }
 void SandboxEngine::initialize() {
 	m_windowInput = std::make_shared<GLFWWindowInput>(m_window.getGLFWwindow());
-	if (auto* userData = static_cast<WindowUserData*>(glfwGetWindowUserPointer(m_window.getGLFWwindow()))) {
+	if (auto* userData = static_cast<WindowUserData*>(m_windowInput->getWindowUserPointer())) {
 		userData->input = m_windowInput.get();
 	}
 	m_windowInput->lockCursor(m_cursorLocked);
@@ -25,7 +24,7 @@ void SandboxEngine::initLayer(IGameLayer* game) {
 
 	game->onInit();
 
-	m_renderer.initializeSystems(m_assetManager);
+	m_renderer.initializeSystems(m_assetManager, game->getSceneInterface());
 	spdlog::info("Game initialized");
 }
 
@@ -42,7 +41,7 @@ void SandboxEngine::run(std::unique_ptr<IGameLayer> game) {
 	ICamera& cam = scene.getCamera();
 
 
-	while (!glfwWindowShouldClose(m_window.getGLFWwindow())) {
+	while (!m_windowInput->isWindowShouldClose()) {
 		// Poll events / process input
 		m_windowInput->pollEvents();
 		processInput();

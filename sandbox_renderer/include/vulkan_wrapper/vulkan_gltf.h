@@ -31,8 +31,14 @@ namespace vkglTF {
 
 	enum DescriptorBindingFlags {
 		ImageBaseColor = 0x00000001,
-		ImageNormalMap = 0x00000002
+		ImageNormalMap = 0x00000002,
+		ImageMetallicMap = 0x00000004,
+		ImageRoughnessMap = 0x00000008, // If you separate roughness (usually combined, but define if needed)
+		ImageAOMap = 0x00000010,
+		ImageEmissiveMap = 0x00000020
+		// Add more if needed (specGloss, diffuse, etc)
 	};
+
 
 	extern VkDescriptorSetLayout descriptorSetLayoutImage;
 	extern VkDescriptorSetLayout descriptorSetLayoutUbo;

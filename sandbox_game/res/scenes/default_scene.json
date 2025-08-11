@@ -11,7 +11,7 @@
       "count": 4,
       "radius": 8.0,
       "height": 6.0,
-      "intensity": 0.2,
+      "intensity": 1,
       "colors": [
         [ 1.0, 0.95, 0.85 ],
         [ 1.0, 0.85, 0.65 ],
@@ -22,7 +22,8 @@
     {
       "type": "gltf",
       "name": "cube",
-      "usage": "skybox"
+      "usage": "skybox",
+      "cubemap": "skybox_hdr"
     },
     {
       "name": "main_scene",

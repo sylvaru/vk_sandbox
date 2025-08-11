@@ -21,10 +21,8 @@ AssetManager::~AssetManager()
 {
 
 }
-// AssetManager.cpp
 
 void AssetManager::preloadGlobalAssets() {
-    // Read model & cubemap list JSON
     std::ifstream in(PROJECT_ROOT_DIR "/sandbox_game/res/scene_assets/default_scene_assets.json");
     if (!in.is_open()) {
         throw std::runtime_error("Failed to open model list JSON.");
@@ -33,7 +31,7 @@ void AssetManager::preloadGlobalAssets() {
     json modelJson;
     in >> modelJson;
 
-    // 1) Load models first (unchanged from your flow)
+
     for (const auto& entry : modelJson["models"]) {
         const std::string name = entry["name"];
         const std::string type = entry.value("type", "obj");
@@ -45,8 +43,18 @@ void AssetManager::preloadGlobalAssets() {
                 spdlog::info("[AssetManager] Successfully loaded OBJ model '{}' from '{}'", name, path);
             }
             else if (type == "gltf") {
-                uint32_t flags = entry.value("flags", 0);  // Optional flags
-                float scale = entry.value("scale", 1.0f);  // Optional scale
+                uint32_t flags = entry.value("flags", 0);
+                float scale = entry.value("scale", 1.0f);
+
+
+                constexpr uint32_t skyboxFlags = vkglTF::FileLoadingFlags::PreTransformVertices
+                    | vkglTF::FileLoadingFlags::PreMultiplyVertexColors
+                    | vkglTF::FileLoadingFlags::FlipY;
+
+                if (entry.value("usage", "") == "skybox" || name == "cube") {
+                    flags = skyboxFlags;
+                }
+
                 auto model = loadGLTFmodel(name, path, flags, scale);
                 if (entry.value("usage", "") == "skybox" || name == "cube") {
                     m_skyboxModel = model;
@@ -61,7 +69,7 @@ void AssetManager::preloadGlobalAssets() {
             spdlog::error("[AssetManager] Failed to load model '{}': {}", name, e.what());
         }
     }
-    // ---------- Load plain 2D textures (optional, from JSON "textures" array) ----------
+
     if (modelJson.contains("textures")) {
         for (const auto& entry : modelJson["textures"]) {
             const std::string name = entry["name"];
@@ -83,7 +91,7 @@ void AssetManager::preloadGlobalAssets() {
             auto resolved = find_existing_path(relPath, candidates);
             if (!resolved) {
                 spdlog::error("[AssetManager] texture '{}' not found, tried candidates. JSON path='{}'", name, relPath);
-                // optionally list candidate paths for debugging:
+
                 for (const auto& c : candidates) {
                     spdlog::debug("[AssetManager] tried: {}", (std::filesystem::path(c) / relPath).string());
                 }
@@ -109,23 +117,21 @@ void AssetManager::preloadGlobalAssets() {
             }
         }
     }
-    // 2) Load cubemaps *before* generating BRDF / irradiance / prefiltered maps
-    // Keep track of whether we loaded the environment cubemap used for IBL
+
     std::shared_ptr<VkSandboxTexture> loadedEnvironmentCubemap = nullptr;
 
     for (const auto& entry : modelJson["cubemaps"]) {
         const std::string name = entry["name"];
         const std::string path = std::string(PROJECT_ROOT_DIR) + "/res/textures/" + entry["path"].get<std::string>();
 
-        // Map format string (if present) to VkFormat; default to R32G32B32A32_SFLOAT
         std::string fmtStr = entry.value("format", "VK_FORMAT_R32G32B32A32_SFLOAT");
         VkFormat format = VK_FORMAT_R32G32B32A32_SFLOAT;
         if (fmtStr == "VK_FORMAT_R16G16B16A16_SFLOAT") format = VK_FORMAT_R16G16B16A16_SFLOAT;
         else if (fmtStr == "VK_FORMAT_R32G32B32A32_SFLOAT") format = VK_FORMAT_R32G32B32A32_SFLOAT;
-        // Add more mappings here if you expect other formats
+
 
         try {
-            // loadCubemap() must return std::shared_ptr<VkSandboxTexture>
+
             auto cubemap = loadCubemap(
                 name,
                 path,
@@ -139,15 +145,12 @@ void AssetManager::preloadGlobalAssets() {
                 continue;
             }
 
-            // Register into your caches (optional helper)
             registerTextureIfNeeded(name, cubemap, m_textures, m_textureIndexMap, m_textureList);
 
             spdlog::info("[AssetManager] Successfully loaded cubemap '{}' from '{}'", name, path);
 
-            // If this cubemap is the environment (skybox_hdr per your JSON), remember it.
-            // Use the name you expect in your code / JSON. I see "skybox_hdr" in your example JSON.
+
             if (name == "skybox_hdr" || entry.value("environment", false)) {
-                // prefer explicit "environment" : true in JSON or name match
                 loadedEnvironmentCubemap = cubemap;
             }
         }
@@ -156,8 +159,7 @@ void AssetManager::preloadGlobalAssets() {
         }
     }
 
-    // 3) Create/generate BRDF LUT and IBL assets — ensure environmentCube points to the loaded cubemap
-    // If your JSON didn't mark which cubemap is the environment, we fallback to looking up "skybox_hdr"
+
     if (!loadedEnvironmentCubemap) {
         auto it = m_textures.find("skybox_hdr");
         if (it != m_textures.end()) {
@@ -167,23 +169,17 @@ void AssetManager::preloadGlobalAssets() {
 
     if (!loadedEnvironmentCubemap) {
         spdlog::warn("[AssetManager] No environment cubemap found (expected 'skybox_hdr' or 'environment':true). Using placeholder/empty environmentCube.");
-        // Optionally: throw or create a debug 1x1 texture so validation doesn't fail.
-        // For now we will not create an invalid shared_ptr (keeps previous behavior safer).
     }
     else {
         environmentCube = loadedEnvironmentCubemap;
     }
 
-    // Create BRDF LUT, irradianceCube, prefilteredCube structures (these should allocate their own images)
-    // Note: remove any line that reassigns environmentCube to an empty VkSandboxTexture (that was the bug)
     lutBrdf = std::make_shared<VkSandboxTexture>(&m_device);
     irradianceCube = std::make_shared<VkSandboxTexture>(&m_device);
     prefilteredCube = std::make_shared<VkSandboxTexture>(&m_device);
 
-    // Generate BRDF LUT first (your existing function)
     generateBRDFlut();
 
-    // Now generate irradiance and prefiltered maps using environmentCube (must be valid)
     if (!environmentCube) {
         spdlog::error("[AssetManager] environmentCube is null - aborting IBL generation to avoid descriptor errors.");
     }
@@ -200,6 +196,162 @@ void AssetManager::preloadGlobalAssets() {
 
     spdlog::info("Assets loaded");
 }
+
+std::shared_ptr<VkSandboxTexture> AssetManager::loadTexture(
+    const std::string& name,
+    const std::string& filename,
+    VkFormat format,
+    VkImageUsageFlags usageFlags,
+    VkImageLayout imageLayout)
+{
+    using namespace std::string_literals;
+
+    spdlog::info("[AssetManager] Loading texture '{}' from '{}'", name, filename);
+
+    // Create the texture wrapper tied to this device
+    auto tex = std::make_shared<VkSandboxTexture>(&m_device);
+    tex->m_imageLayout = imageLayout;
+    tex->m_format = format;
+
+    const std::string ext = get_file_ext_lower(filename);
+
+    try {
+        bool ok = false;
+
+        if (ext == ".ktx" || ext == ".ktx2") {
+            ok = tex->KTXLoadFromFile(filename, format, &m_device, m_transferQueue, usageFlags, imageLayout, /*forceLinear=*/false);
+
+            if (!ok) {
+                spdlog::error("[AssetManager] KTXLoadFromFile failed for '{}'", filename);
+                return nullptr;
+            }
+        }
+        else {
+
+            ok = tex->STBLoadFromFile(filename);
+            if (!ok) {
+                spdlog::error("[AssetManager] STBLoadFromFile failed for '{}'", filename);
+                return nullptr;
+            }
+
+        }
+
+
+        VkSampler sampler = tex->GetSampler();
+        VkImageView view = tex->GetImageView();
+
+        if (sampler == VK_NULL_HANDLE || view == VK_NULL_HANDLE) {
+            spdlog::warn("[AssetManager] Texture '{}' loaded but sampler/view are null (sampler: {}, view: {})", name,
+                static_cast<uint64_t>(reinterpret_cast<uintptr_t>(sampler)),
+                static_cast<uint64_t>(reinterpret_cast<uintptr_t>(view)));
+
+        }
+
+        tex->m_descriptor.sampler = sampler;
+        tex->m_descriptor.imageView = view;
+        tex->m_descriptor.imageLayout = imageLayout;
+
+
+
+        spdlog::info("[AssetManager] Texture '{}' loaded OK (view: {}, sampler: {})", name,
+            (view != VK_NULL_HANDLE ? "valid" : "null"),
+            (sampler != VK_NULL_HANDLE ? "valid" : "null"));
+
+        return tex;
+    }
+    catch (const std::exception& e) {
+        spdlog::error("[AssetManager] Exception while loading texture '{}': {}", filename, e.what());
+        return nullptr;
+    }
+    catch (...) {
+        spdlog::error("[AssetManager] Unknown error while loading texture '{}'", filename);
+        return nullptr;
+    }
+}
+
+
+std::shared_ptr<VkSandboxOBJmodel> AssetManager::loadObjModel(
+    const std::string& name,
+    const std::string& filepath,
+    bool isSkybox
+) {
+    if (auto it = m_objModelCache.find(name); it != m_objModelCache.end())
+        return it->second;
+
+
+    auto model = VkSandboxOBJmodel::createModelFromFile(m_device, filepath, isSkybox);
+
+
+    m_objModelCache[name] = model;
+    return model;
+}
+
+
+std::shared_ptr<vkglTF::Model> AssetManager::loadGLTFmodel(
+    const std::string& name,
+    const std::string& filepath,
+    uint32_t gltfFlags,
+    float scale
+) {
+    if (auto it = m_gltfModelCache.find(name); it != m_gltfModelCache.end())
+        return it->second;
+
+    auto model = std::make_shared<vkglTF::Model>();
+    model->loadFromFile(filepath, &m_device, m_device.graphicsQueue(), gltfFlags, scale);
+
+    m_gltfModelCache[name] = model;
+    return model;
+}
+
+std::shared_ptr<VkSandboxTexture> AssetManager::loadCubemap(
+    const std::string& name,
+    const std::string& ktxFilename,
+    VkFormat format,
+    VkImageUsageFlags usageFlags,
+    VkImageLayout initialLayout)
+{
+    if (auto it = m_textures.find(name); it != m_textures.end())
+        return it->second;
+
+    auto tex = std::make_shared<VkSandboxTexture>();
+    tex->m_pDevice = &m_device;
+    try {
+        tex->KtxLoadCubemapFromFile(
+            name,
+            ktxFilename,
+            format,
+            &m_device,
+            m_device.graphicsQueue(),
+            usageFlags,
+            initialLayout
+        );
+    }
+    catch (const std::exception& e) {
+        throw std::runtime_error("Failed to load HDR cubemap '" + name + "': " + e.what());
+    }
+
+    registerTextureIfNeeded(name, tex, m_textures, m_textureIndexMap, m_textureList);
+    return tex;
+}
+
+
+
+
+void AssetManager::registerTextureIfNeeded(
+    const std::string& name,
+    const std::shared_ptr<VkSandboxTexture>& tex,
+    std::unordered_map<std::string, std::shared_ptr<VkSandboxTexture>>& textures,
+    std::unordered_map<std::string, size_t>& textureIndexMap,
+    std::vector<std::shared_ptr<VkSandboxTexture>>& textureList)
+{
+    if (textures.find(name) == textures.end()) {
+        textures[name] = tex;
+        textureList.push_back(tex);
+        textureIndexMap[name] = textureList.size() - 1;
+    }
+}
+
+
 
 
 void AssetManager::generatePrefilteredEnvMap() {
@@ -443,7 +595,7 @@ void AssetManager::generatePrefilteredEnvMap() {
 
     // shader paths (match your project layout)
     std::string vert = std::string(PROJECT_ROOT_DIR) + "/res/shaders/spirV/filtered_cube.vert.spv";
-    std::string frag = std::string(PROJECT_ROOT_DIR) + "/res/shaders/spirV/prefiltered_env_map.frag.spv";
+    std::string frag = std::string(PROJECT_ROOT_DIR) + "/res/shaders/spirV/prefiltered_env_map.spv";
 
     if (frag.empty()) {
         // cleanup minimal resources
@@ -1099,170 +1251,7 @@ void AssetManager::generateBRDFlut() {
 
     auto tEnd = std::chrono::high_resolution_clock::now();
     auto tDiff = std::chrono::duration<double, std::milli>(tEnd - tStart).count();
-    std::cout << "Generating BRDF LUT took " << tDiff << " ms" << std::endl;
+
+    spdlog::info("Generating BRDF took {} ms", tDiff);
 }
 
-
-std::shared_ptr<VkSandboxTexture> AssetManager::loadTexture(
-    const std::string& name,
-    const std::string& filename,
-    VkFormat format,
-    VkImageUsageFlags usageFlags,
-    VkImageLayout imageLayout)
-{
-    using namespace std::string_literals;
-
-    spdlog::info("[AssetManager] Loading texture '{}' from '{}'", name, filename);
-
-    // Create the texture wrapper tied to this device
-    auto tex = std::make_shared<VkSandboxTexture>(&m_device);
-    tex->m_imageLayout = imageLayout;
-    tex->m_format = format;
-
-    const std::string ext = get_file_ext_lower(filename);
-
-    try {
-        bool ok = false;
-
-        if (ext == ".ktx" || ext == ".ktx2") {
-            // KTX loader signature:
-            // KTXLoadFromFile(filename, format, device, copyQueue, imageUsageFlags, imageLayout, forceLinear)
-            ok = tex->KTXLoadFromFile(filename, format, &m_device, m_transferQueue, usageFlags, imageLayout, /*forceLinear=*/false);
-
-            if (!ok) {
-                spdlog::error("[AssetManager] KTXLoadFromFile failed for '{}'", filename);
-                return nullptr;
-            }
-        }
-        else {
-            // STB loader path (PNG/JPG/etc).
-            // STBLoadFromFile is expected to populate image, view, sampler, descriptor inside VkSandboxTexture.
-            ok = tex->STBLoadFromFile(filename);
-            if (!ok) {
-                spdlog::error("[AssetManager] STBLoadFromFile failed for '{}'", filename);
-                return nullptr;
-            }
-
-            // Note: STBLoadFromFile implementations often create the image, view and sampler and set the descriptor.
-            // If your STB implementation requires a specific final layout or usage flags, modify STBLoadFromFile or
-            // add an alternative fromBuffer(...) call. We assume STBLoadFromFile already handled that.
-        }
-
-        // Ensure descriptor fields are populated (defensive).
-        // GetSampler/GetImageView accessors are public on VkSandboxTexture.
-        VkSampler sampler = tex->GetSampler();
-        VkImageView view = tex->GetImageView();
-
-        if (sampler == VK_NULL_HANDLE || view == VK_NULL_HANDLE) {
-            spdlog::warn("[AssetManager] Texture '{}' loaded but sampler/view are null (sampler: {}, view: {})", name,
-                static_cast<uint64_t>(reinterpret_cast<uintptr_t>(sampler)),
-                static_cast<uint64_t>(reinterpret_cast<uintptr_t>(view)));
-            // Still return the texture (caller must check), or treat as failure:
-            // return nullptr;
-        }
-
-        tex->m_descriptor.sampler = sampler;
-        tex->m_descriptor.imageView = view;
-        tex->m_descriptor.imageLayout = imageLayout;
-
-        // store some bookkeeping fields (layer count, mips) if your loaders set them
-        // tex->m_layerCount already set by loader if cubemap; for 2D textures keep 1
-
-        spdlog::info("[AssetManager] Texture '{}' loaded OK (view: {}, sampler: {})", name,
-            (view != VK_NULL_HANDLE ? "valid" : "null"),
-            (sampler != VK_NULL_HANDLE ? "valid" : "null"));
-
-        return tex;
-    }
-    catch (const std::exception& e) {
-        spdlog::error("[AssetManager] Exception while loading texture '{}': {}", filename, e.what());
-        return nullptr;
-    }
-    catch (...) {
-        spdlog::error("[AssetManager] Unknown error while loading texture '{}'", filename);
-        return nullptr;
-    }
-}
-
-
-std::shared_ptr<VkSandboxOBJmodel> AssetManager::loadObjModel(
-    const std::string& name,
-    const std::string& filepath,
-    bool isSkybox
-) {
-    // 1) cache check
-    if (auto it = m_objModelCache.find(name); it != m_objModelCache.end())
-        return it->second;
-
-    // 2) load
-    auto model = VkSandboxOBJmodel::createModelFromFile(m_device, filepath, isSkybox);
-
-    // 3) cache & return
-    m_objModelCache[name] = model;
-    return model;
-}
-
-
-std::shared_ptr<vkglTF::Model> AssetManager::loadGLTFmodel(
-    const std::string& name,
-    const std::string& filepath,
-    uint32_t gltfFlags,
-    float scale
-) {
-    if (auto it = m_gltfModelCache.find(name); it != m_gltfModelCache.end())
-        return it->second;
-
-    auto model = std::make_shared<vkglTF::Model>();
-    model->loadFromFile(filepath, &m_device, m_device.graphicsQueue(), gltfFlags, scale);
-
-    m_gltfModelCache[name] = model;
-    return model;
-}
-
-std::shared_ptr<VkSandboxTexture> AssetManager::loadCubemap(
-    const std::string& name,
-    const std::string& ktxFilename,
-    VkFormat format,
-    VkImageUsageFlags usageFlags,
-    VkImageLayout initialLayout)
-{
-    if (auto it = m_textures.find(name); it != m_textures.end())
-        return it->second;
-
-    auto tex = std::make_shared<VkSandboxTexture>();
-    tex->m_pDevice = &m_device;
-    try {
-        tex->KtxLoadCubemapFromFile(
-            name,
-            ktxFilename,
-            format,
-            &m_device,
-            m_device.graphicsQueue(),
-            usageFlags,
-            initialLayout
-        );
-    }
-    catch (const std::exception& e) {
-        throw std::runtime_error("Failed to load HDR cubemap '" + name + "': " + e.what());
-    }
-
-    registerTextureIfNeeded(name, tex, m_textures, m_textureIndexMap, m_textureList);
-    return tex;
-}
-
-
-
-
-void AssetManager::registerTextureIfNeeded(
-    const std::string& name,
-    const std::shared_ptr<VkSandboxTexture>& tex,
-    std::unordered_map<std::string, std::shared_ptr<VkSandboxTexture>>& textures,
-    std::unordered_map<std::string, size_t>& textureIndexMap,
-    std::vector<std::shared_ptr<VkSandboxTexture>>& textureList)
-{
-    if (textures.find(name) == textures.end()) {
-        textures[name] = tex;
-        textureList.push_back(tex);
-        textureIndexMap[name] = textureList.size() - 1;
-    }
-}
