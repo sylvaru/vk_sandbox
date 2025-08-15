@@ -42,7 +42,6 @@ void GltfRenderSystem::init(
     createPipelineLayout(globalSetLayout);
     createPipeline(renderPass);
 
-    // --- 2) Allocate & write per‐frame IBL descriptor sets ---
     m_iblDescriptorSets.resize(frameCount);
     for (uint32_t i = 0; i < frameCount; i++) {
         VkDescriptorSet set;
@@ -51,7 +50,7 @@ void GltfRenderSystem::init(
             set,
             /*setIndex=*/0
         );
-        // grab descriptors straight from the provider:
+
         auto brdfInfo = m_assets.getBRDFLUTDescriptor();
         auto irradianceInfo = m_assets.getIrradianceDescriptor();
         auto prefilterInfo = m_assets.getPrefilteredDescriptor();
@@ -193,7 +192,7 @@ void GltfRenderSystem::render(FrameInfo& frame) {
 
                 if (materialDescriptorSet == VK_NULL_HANDLE) {
                     if (!warnedThisFrame) {
-                        //spdlog::warn("Primitive material descriptor set is null, skipping draw.");
+                        spdlog::warn("Primitive material descriptor set is null, skipping draw.");
                         warnedThisFrame = true;
                     }
                     
@@ -212,6 +211,8 @@ void GltfRenderSystem::render(FrameInfo& frame) {
                     materialDescriptorSet,                   // set 2
                     iblSet                                  // set 3
                 };
+
+
 
                 vkCmdBindDescriptorSets(
                     frame.commandBuffer,

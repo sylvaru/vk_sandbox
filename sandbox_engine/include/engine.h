@@ -9,7 +9,7 @@
 #include "interfaces/window_input_i.h"
 #include "common/glfw_input.h"
 #include "asset_manager.h"
-
+#include "physics.h"
 
 
 class SandboxEngine {
@@ -18,7 +18,7 @@ public:
     static constexpr uint32_t HEIGHT = 810;
 
     SandboxEngine();
-    ~SandboxEngine() = default;
+    ~SandboxEngine();
 
     void initialize();
 
@@ -31,9 +31,8 @@ private:
     VkSandboxDevice                     m_device{ m_vkinstance, m_window };
     AssetManager                        m_assetManager{ m_device };
     VkSandboxRenderer                   m_renderer{ m_device, m_window };
- 
-    VkSurfaceKHR                        m_surface = VK_NULL_HANDLE;
-    VkInstance                          m_vkinstance_handle= VK_NULL_HANDLE;
+    std::unique_ptr<SandboxPhysics>     m_pPhysics;
+
 
     std::shared_ptr<IWindowInput>       m_windowInput;
 

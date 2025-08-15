@@ -101,6 +101,7 @@ void main() {
     vec3 B = cross(N, T) * inTangent.w;
     mat3 TBN = mat3(T, B, N);
     vec3 sampledNormal = texture(normalMap, inUV).xyz * 2.0 - 1.0;
+    sampledNormal.y = -sampledNormal.y;
     N = normalize(TBN * sampledNormal);
 
     vec3 V = normalize(inViewVec);

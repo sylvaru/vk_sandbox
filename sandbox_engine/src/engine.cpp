@@ -10,6 +10,11 @@ SandboxEngine::SandboxEngine() {
 	m_assetManager.preloadGlobalAssets();
 	initialize();
 }
+SandboxEngine::~SandboxEngine() {
+	if (m_pPhysics) {
+		m_pPhysics->shutdown();
+	}
+}
 void SandboxEngine::initialize() {
 	m_windowInput = std::make_shared<GLFWWindowInput>(m_window.getGLFWwindow());
 	if (auto* userData = static_cast<WindowUserData*>(m_windowInput->getWindowUserPointer())) {
@@ -17,12 +22,31 @@ void SandboxEngine::initialize() {
 	}
 	m_windowInput->lockCursor(m_cursorLocked);
 	setupInputCallbacks();
+
+
+	m_pPhysics = std::make_unique<SandboxPhysics>();
+	if (!m_pPhysics->init(/*workerThreads=*/2)) {
+		spdlog::error("SandboxEngine: PhysX initialize failed");
+		// decide policy: continue without physics or abort. Here we continue.
+		m_pPhysics.reset();
+	}
+	else {
+		if (!m_pPhysics->createDefaultScene()) {
+			spdlog::error("SandboxEngine: createDefaultScene failed");
+			m_pPhysics->shutdown();
+			m_pPhysics.reset();
+		}
+	}
 	spdlog::info("Engine initialized");
 }
 void SandboxEngine::initLayer(IGameLayer* game) {
 
 
 	game->onInit();
+
+	if (m_pPhysics) {
+		//game->onPhysicsInit(m_pPhysics.get());
+	}
 
 	m_renderer.initializeSystems(m_assetManager, game->getSceneInterface());
 	spdlog::info("Game initialized");

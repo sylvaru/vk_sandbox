@@ -26,6 +26,13 @@
       "cubemap": "skybox_hdr"
     },
     {
+      "type": "obj",
+      "name": "quad",
+      "position": [ 0.0, 0.0, 0.0 ],
+      "rotation": [ -90.0, 0.0, 0.0 ],
+      "scale": [ 10.0, 10.0, 1.0 ]
+    },
+    {
       "name": "main_scene",
       "model": "sponza",
       "position": [ 0.0, 1.0, 0.0 ],
