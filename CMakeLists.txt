@@ -67,7 +67,6 @@ endfunction()
 # Core targets
 # ----------------------------
 add_subdirectory(sandbox_renderer)
-add_subdirectory(sandbox_physics)
 add_subdirectory(sandbox_engine)
 add_subdirectory(sandbox_game)
 add_subdirectory(core_interfaces)

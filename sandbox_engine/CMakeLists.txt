@@ -19,10 +19,8 @@ target_include_directories(sandbox_engine
 target_link_libraries(sandbox_engine
     PUBLIC
         sandbox_renderer
-        sandbox_physics
         spdlog::spdlog
         glfw
         json
         core_interfaces
 )
-

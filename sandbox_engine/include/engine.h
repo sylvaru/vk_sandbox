@@ -9,7 +9,7 @@
 #include "interfaces/window_input_i.h"
 #include "common/glfw_input.h"
 #include "asset_manager.h"
-#include "physics.h"
+
 
 
 class SandboxEngine {
@@ -31,7 +31,7 @@ private:
     VkSandboxDevice                     m_device{ m_vkinstance, m_window };
     AssetManager                        m_assetManager{ m_device };
     VkSandboxRenderer                   m_renderer{ m_device, m_window };
-    std::unique_ptr<SandboxPhysics>     m_pPhysics;
+ 
 
 
     std::shared_ptr<IWindowInput>       m_windowInput;

@@ -26,18 +26,7 @@ target_link_libraries(sandbox_game
 target_link_libraries(sandbox_game
     PRIVATE
         sandbox_engine
-        PhysX       # link PhysX here
         core_interfaces
         glm
         json
 )
-
-# Copy runtime DLLs from PhysX
-get_target_property(PHYSX_DLL_DIR PhysX PHYSX_DLL_DIR)
-set(PHYSX_DLLS
-    PhysXFoundation_64.dll
-    PhysXCommon_64.dll
-    PhysX_64.dll
-)
-
-register_runtime_dlls(sandbox_game "${PHYSX_DLL_DIR}" ${PHYSX_DLLS})
