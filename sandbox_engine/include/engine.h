@@ -32,8 +32,6 @@ private:
     AssetManager                        m_assetManager{ m_device };
     VkSandboxRenderer                   m_renderer{ m_device, m_window };
  
-
-
     std::shared_ptr<IWindowInput>       m_windowInput;
 
 public:

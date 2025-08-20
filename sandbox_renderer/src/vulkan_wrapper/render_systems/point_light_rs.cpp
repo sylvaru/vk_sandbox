@@ -91,8 +91,11 @@ void PointLightRS::render(FrameInfo& frame) {
     std::map<float, uint32_t> sorted;
     for (auto& [id, obj] : frame.gameObjects) {
         const auto* light = obj->getPointLight();
+        if (obj->getPreferredRenderTag() != RenderTag::PointLight) {
+            continue;
+        }
         if (!light) continue;
-        glm::vec3 offset = frame.camera.getPosition() - obj->getTransform().translation;// need to implement getPosition because ICamera has no defintion
+        glm::vec3 offset = frame.camera.getPosition() - obj->getTransform().translation;
         float distanceSquared = glm::dot(offset, offset);
         sorted[distanceSquared] = obj->getId();
     }

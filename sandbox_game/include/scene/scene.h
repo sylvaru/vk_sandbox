@@ -58,4 +58,6 @@ private:
 	std::optional<uint32_t> m_skyboxId;
 	std::shared_ptr<IGameObject> m_skyboxObject;
 	std::string m_skyboxCubemapName = "skybox_hdr";
+	bool m_bIsObj = false;
+	bool m_bIsGltf = false;
 };

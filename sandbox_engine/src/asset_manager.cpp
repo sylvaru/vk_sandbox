@@ -177,7 +177,13 @@ void AssetManager::preloadGlobalAssets() {
     lutBrdf = std::make_shared<VkSandboxTexture>(&m_device);
     irradianceCube = std::make_shared<VkSandboxTexture>(&m_device);
     prefilteredCube = std::make_shared<VkSandboxTexture>(&m_device);
-
+    m_skyboxModel = std::make_shared<vkglTF::Model>();
+    m_skyboxModel->loadFromFile(
+        PROJECT_ROOT_DIR + std::string("/res/models/gltf/cube.gltf"),
+        &m_device,
+        m_transferQueue,
+        vkglTF::FileLoadingFlags::PreTransformVertices | vkglTF::FileLoadingFlags::FlipY
+    );
     generateBRDFlut();
 
     if (!environmentCube) {
@@ -573,7 +579,7 @@ void AssetManager::generatePrefilteredEnvMap() {
     // Vertex input: vec3 position only (location 0)
     VkVertexInputBindingDescription bindingDesc{};
     bindingDesc.binding = 0;
-    bindingDesc.stride = sizeof(glm::vec3);
+    bindingDesc.stride = sizeof(vkglTF::Vertex);
     bindingDesc.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
     VkVertexInputAttributeDescription attrDesc{};
@@ -654,7 +660,7 @@ void AssetManager::generatePrefilteredEnvMap() {
             rpBI.framebuffer = offscreen.framebuffer;
             rpBI.renderArea.extent.width = mipDim;
             rpBI.renderArea.extent.height = mipDim;
-            VkClearValue clear{ {{0.0f, 0.0f, 0.2f, 0.0f}} };
+            VkClearValue clear{ {{0.0f, 0.0f, 0.0f, 0.0f}} };
             rpBI.clearValueCount = 1;
             rpBI.pClearValues = &clear;
 
@@ -676,9 +682,10 @@ void AssetManager::generatePrefilteredEnvMap() {
                 spdlog::error("[AssetManager] No skybox model loaded - skipping draw in generatePrefilteredEnvMap()");
             }
             else {
-                m_skyboxModel->draw(cmdBuf);
+                m_skyboxModel->bind(cmdBuf);
+                m_skyboxModel->gltfDraw(cmdBuf);
             }
-
+          
             vkCmdEndRenderPass(cmdBuf);
 
             // copy from offscreen -> prefilteredCube mip/face
@@ -918,7 +925,7 @@ void AssetManager::generateIrradianceMap() {
     // Vertex input: location 0 is a vec3 position (adjust if your skybox vertex layout differs)
     VkVertexInputBindingDescription bindingDesc{};
     bindingDesc.binding = 0;
-    bindingDesc.stride = sizeof(glm::vec3);
+    bindingDesc.stride = sizeof(vkglTF::Vertex);
     bindingDesc.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
     VkVertexInputAttributeDescription attrDesc{};
     attrDesc.binding = 0;
@@ -974,7 +981,7 @@ void AssetManager::generateIrradianceMap() {
 
         for (uint32_t face = 0; face < 6; ++face) {
             // Begin render pass into offscreen framebuffer
-            VkClearValue clear{ {{0.0f, 0.0f, 0.2f, 0.0f}} };
+            VkClearValue clear{ {{0.0f, 0.0f, 0.0f, 0.0f}} };
             VkRenderPassBeginInfo rpBI = vkinit::renderPassBeginInfo();
             rpBI.renderPass = renderpass;
             rpBI.framebuffer = offscreen.framebuffer;
@@ -999,10 +1006,10 @@ void AssetManager::generateIrradianceMap() {
                 spdlog::error("[AssetManager] No skybox model loaded - skipping draw in generateIrradianceMap()");
             }
             else {
-                // m_skyboxModel is your GLTFmodelHandle (likely a shared_ptr to vkglTF::Model)
-                m_skyboxModel->draw(cmdBuf);// this matches Sascha's models.skybox.draw(cmdBuf)
+                m_skyboxModel->bind(cmdBuf);
+                m_skyboxModel->gltfDraw(cmdBuf);
             }
-       
+         
 
             // END render pass BEFORE any barriers/copies
             vkCmdEndRenderPass(cmdBuf);
@@ -1222,7 +1229,8 @@ void AssetManager::generateBRDFlut() {
 
     // Render
     VkClearValue clearValues[1];
-    clearValues[0].color = { { 0.0f, 0.0f, 0.0f, 1.0f } };
+
+    clearValues[0].color = { {0.0f, 0.0f, 0.0f, 0.0f} };
 
     VkRenderPassBeginInfo renderPassBeginInfo = vkinit::renderPassBeginInfo();
     renderPassBeginInfo.renderPass = renderpass;

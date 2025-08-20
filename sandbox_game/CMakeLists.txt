@@ -20,12 +20,6 @@ target_include_directories(sandbox_game
 target_link_libraries(sandbox_game
     PRIVATE
         sandbox_engine
-
-)
-
-target_link_libraries(sandbox_game
-    PRIVATE
-        sandbox_engine
         core_interfaces
         glm
         json

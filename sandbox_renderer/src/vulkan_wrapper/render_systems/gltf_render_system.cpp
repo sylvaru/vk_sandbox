@@ -37,7 +37,13 @@ void GltfRenderSystem::init(
         .addBinding(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
         .build();
 
-
+    m_pbrLayout = VkSandboxDescriptorSetLayout::Builder{ device }
+        .addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // albedo
+        .addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // normal
+        .addBinding(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // metallic
+        .addBinding(3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // roughness
+        .addBinding(4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // ao
+        .build();
 
     createPipelineLayout(globalSetLayout);
     createPipeline(renderPass);
@@ -62,18 +68,58 @@ void GltfRenderSystem::init(
             .build(set);
 
         m_iblDescriptorSets[i] = set;
+
+
     }
 
+    // --- Allocate & write PBR sets (set = 2) from JSON names ---
+ // cerberus_* come from your default_scene_assets.json
+    m_pbrDescriptorSets.resize(frameCount);
+    for (uint32_t i = 0; i < frameCount; i++) {
+        VkDescriptorSet set;
+        descriptorPool.allocateDescriptor(m_pbrLayout->getDescriptorSetLayout(), set, /*setIndex=*/0);
 
+        auto logDescriptor = [&](const char* name, const VkDescriptorImageInfo& info) {
+            spdlog::info("{} - sampler: {}, imageView: {}, layout: {}",
+                name,
+                (uint64_t)info.sampler,
+                (uint64_t)info.imageView,
+                (int)info.imageLayout
+            );
+            };
+
+        VkDescriptorImageInfo albedoInfo = m_assets.getTextureDescriptor("cerberus_albedo");
+        VkDescriptorImageInfo normalInfo = m_assets.getTextureDescriptor("cerberus_normal");
+        VkDescriptorImageInfo metallicInfo = m_assets.getTextureDescriptor("cerberus_metallic");
+        VkDescriptorImageInfo roughnessInfo = m_assets.getTextureDescriptor("cerberus_roughness");
+        VkDescriptorImageInfo aoInfo = m_assets.getTextureDescriptor("cerberus_ao");
+
+        logDescriptor("albedo", albedoInfo);
+        logDescriptor("normal", normalInfo);
+        logDescriptor("metallic", metallicInfo);
+        logDescriptor("roughness", roughnessInfo);
+        logDescriptor("ao", aoInfo);
+
+        VkSandboxDescriptorWriter(*m_pbrLayout, descriptorPool)
+            .writeImage(0, &albedoInfo)
+            .writeImage(1, &normalInfo)
+            .writeImage(2, &metallicInfo)
+            .writeImage(3, &roughnessInfo)
+            .writeImage(4, &aoInfo)
+            .build(set);
+
+        m_pbrDescriptorSets[i] = set;
+    }
 }
 
 void GltfRenderSystem::createPipelineLayout(VkDescriptorSetLayout globalSetLayout) {
     const std::vector<VkDescriptorSetLayout> layouts = {
         globalSetLayout,
         vkglTF::descriptorSetLayoutUbo,
-        vkglTF::descriptorSetLayoutImage,
+        m_pbrLayout->getDescriptorSetLayout(),
         m_iblLayout->getDescriptorSetLayout()
     };
+
 
     VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -170,12 +216,16 @@ void GltfRenderSystem::render(FrameInfo& frame) {
     static bool warnedThisFrame = false;
 
     for (auto& [id, go] : frame.gameObjects) {
+
+        if (go->getPreferredRenderTag() != RenderTag::Gltf) {
+            continue; // not mine, skip
+        }
         auto baseModel = go->getModel();
         if (!baseModel) continue;
 
         auto model = std::dynamic_pointer_cast<vkglTF::Model>(baseModel);
         if (!model) continue;
-
+      
         model->bind(frame.commandBuffer);
 
         for (auto* node : model->m_linearNodes) {
@@ -188,56 +238,59 @@ void GltfRenderSystem::render(FrameInfo& frame) {
             memcpy((char*)node->mesh->uniformBuffer.mapped + sizeof(world), &normalMat, sizeof(normalMat));
 
             for (auto* primitive : node->mesh->primitives) {
-                VkDescriptorSet materialDescriptorSet = primitive->material.descriptorSet;
-
-                if (materialDescriptorSet == VK_NULL_HANDLE) {
-                    if (!warnedThisFrame) {
-                        spdlog::warn("Primitive material descriptor set is null, skipping draw.");
-                        warnedThisFrame = true;
-                    }
-                    
-                    continue;
-                }
-
-                VkDescriptorSet iblSet = m_iblDescriptorSets[frame.frameIndex];
-                if (iblSet == VK_NULL_HANDLE) {
-                    spdlog::warn("IBL descriptor set is null, skipping draw.");
-                    continue;
-                }
-
-                std::array<VkDescriptorSet, 4> sets = {
-                    frame.globalDescriptorSet,               // set 0
-                    node->mesh->uniformBuffer.descriptorSet,// set 1
-                    materialDescriptorSet,                   // set 2
-                    iblSet                                  // set 3
+                // --- Bind sets 0 & 1 (global + node UBO) ---
+                std::array<VkDescriptorSet, 2> sets01 = {
+                    frame.globalDescriptorSet,                 // set 0
+                    node->mesh->uniformBuffer.descriptorSet    // set 1
                 };
-
-
-
                 vkCmdBindDescriptorSets(
                     frame.commandBuffer,
                     VK_PIPELINE_BIND_POINT_GRAPHICS,
                     m_pipelineLayout,
                     0,
-                    static_cast<uint32_t>(sets.size()),
-                    sets.data(),
-                    0,
-                    nullptr);
+                    static_cast<uint32_t>(sets01.size()),
+                    sets01.data(),
+                    0, nullptr
+                );
 
+                // --- Bind our PBR set (set = 2) ---
+                VkDescriptorSet pbrSet = m_pbrDescriptorSets[frame.frameIndex];
+                if (pbrSet == VK_NULL_HANDLE) {
+                    if (!warnedThisFrame) { /*spdlog::warn("PBR set null");*/ warnedThisFrame = true; }
+                    continue;
+                }
+                vkCmdBindDescriptorSets(
+                    frame.commandBuffer,
+                    VK_PIPELINE_BIND_POINT_GRAPHICS,
+                    m_pipelineLayout,
+                    2, 1, &pbrSet,
+                    0, nullptr
+                );
+
+                // --- Bind IBL set (set = 3) ---
+                VkDescriptorSet iblSet = m_iblDescriptorSets[frame.frameIndex];
+                if (iblSet == VK_NULL_HANDLE) { continue; }
+                vkCmdBindDescriptorSets(
+                    frame.commandBuffer,
+                    VK_PIPELINE_BIND_POINT_GRAPHICS,
+                    m_pipelineLayout,
+                    3, 1, &iblSet,
+                    0, nullptr
+                );
+
+                // Pick pipeline by alpha mode
                 switch (primitive->material.alphaMode) {
-                case vkglTF::Material::ALPHAMODE_OPAQUE:
-                    m_opaquePipeline->bind(frame.commandBuffer);
-                    break;
-                case vkglTF::Material::ALPHAMODE_MASK:
-                    m_maskPipeline->bind(frame.commandBuffer);
-                    break;
+                case vkglTF::Material::ALPHAMODE_OPAQUE: m_opaquePipeline->bind(frame.commandBuffer); break;
+                case vkglTF::Material::ALPHAMODE_MASK:   m_maskPipeline->bind(frame.commandBuffer);   break;
                 case vkglTF::Material::ALPHAMODE_BLEND:
-                default:
-                    m_blendPipeline->bind(frame.commandBuffer);
-                    break;
+                default:                                  m_blendPipeline->bind(frame.commandBuffer);  break;
                 }
 
-                model->drawNode(node, frame.commandBuffer, vkglTF::RenderFlags::BindImages, m_pipelineLayout, 2);
+                // IMPORTANT: Don't let vkglTF bind images (we already did set=2)
+                // So do NOT pass RenderFlags::BindImages here.
+
+
+                model->gltfDraw(frame.commandBuffer, vkglTF::RenderFlags::RenderNone, m_pipelineLayout, 2);
                 warnedThisFrame = false;
             }
         }

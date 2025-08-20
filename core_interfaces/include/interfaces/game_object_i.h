@@ -15,7 +15,14 @@ struct PointLightComponent
 {
     float lightIntensity = 1.0f;
 };
-
+enum class RenderTag : uint8_t {
+    Auto = 0,     // let renderer infer (OBJ/glTF/PointLight/etc.)
+    Skybox,       // explicit
+    Obj,
+    Gltf,
+    PointLight,
+    Scene         // <-- NEW: route to SceneRenderSystem
+};
 
 struct IGameObject {
     virtual ~IGameObject() = default;
@@ -30,4 +37,6 @@ struct IGameObject {
     virtual const PointLightComponent* getPointLight() const { return nullptr; }
     virtual uint32_t getId() const { return 0; }
     virtual std::string getCubemapTextureName() const { return ""; }
+
+    virtual RenderTag getPreferredRenderTag() const { return RenderTag::Auto; }
 };

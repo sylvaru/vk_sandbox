@@ -97,6 +97,7 @@ void SandboxScene::loadSceneFile(const std::string& fileName) {
                 };
 
                 auto light = SandboxGameObject::makePointLight(intensity, 0.1f, color);
+                light->setRenderTag(RenderTag::PointLight);
                 light->getTransform().translation = pos;
 
                 spdlog::info("Placed point light at ({}, {}, {})", pos.x, pos.y, pos.z);
@@ -117,10 +118,12 @@ void SandboxScene::loadSceneFile(const std::string& fileName) {
             // Try OBJ model first
             if (auto objModel = m_assetManager.getOBJModel(modelName)) {
                 gameObject->setModel(objModel);
+                m_bIsObj = true;
             }
             // Otherwise try glTF model
             else if (auto gltfModel = m_assetManager.getGLTFmodel(modelName)) {
                 gameObject->setModel(gltfModel);
+                m_bIsGltf = true;
             }
             else {
                 throw std::runtime_error("Model not found in cache: " + modelName);
@@ -161,6 +164,39 @@ void SandboxScene::loadSceneFile(const std::string& fileName) {
             setSkyboxObject(gameObject);
             spdlog::info("GameObject '{}' marked as skybox with cubemap '{}'", objJson.value("name", "unnamed"), gameObject->m_cubemapTextureName);
         }
+
+
+        auto getStr = [&](const json& j, const char* k) -> std::optional<std::string> {
+            if (auto it = j.find(k); it != j.end() && it->is_string()) return it->get<std::string>();
+            return std::nullopt;
+            };
+
+        RenderTag tag = RenderTag::Auto;
+        auto rs = getStr(objJson, "renderSystem");
+        if (!rs) rs = getStr(objJson, "render_system"); // alias
+
+        if (rs) {
+            const std::string v = *rs;
+            if (v == "scene")                                 tag = RenderTag::Scene;
+            else if (v == "gltf")                             tag = RenderTag::Gltf;
+            else if (v == "obj")                              tag = RenderTag::Obj;
+            else if (v == "skybox")                           tag = RenderTag::Skybox;
+            else                                              tag = RenderTag::Auto;
+
+            spdlog::info("Render tag override for object '{}': {}",
+                objJson.value("name", "unnamed"), v);
+        }
+        else {
+            // --- No explicit tag: infer like the old behavior ---
+            if (isSkybox)    tag = RenderTag::Skybox;
+            else if (gameObject->getPointLight()) tag = RenderTag::PointLight; // for "special: lights"
+            else if (m_bIsGltf) tag = RenderTag::Gltf;
+            else if (m_bIsObj)  tag = RenderTag::Obj;
+            // else Auto stays, if you have other systems
+        }
+
+        gameObject->setRenderTag(tag);
+
 
         // Insert into map (store as base interface)
         m_gameObjects.emplace(gameObject->getId(), std::static_pointer_cast<IGameObject>(gameObject));

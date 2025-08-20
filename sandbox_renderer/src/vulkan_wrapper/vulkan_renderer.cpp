@@ -21,9 +21,9 @@ void VkSandboxRenderer::createGlobalDescriptorObjects() {
 
 
     m_pool = VkSandboxDescriptorPool::Builder{ m_device }
-        .setMaxSets(FrameCount + 40 /*texture+sky+ibl*/)
+        .setMaxSets(FrameCount + 512) // allow plenty of descriptor sets for materials
         .addPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, FrameCount)
-        .addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 10)
+        .addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 256) // accomodate many material textures
         .setPoolFlags(VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT)
         .build();
 
@@ -123,12 +123,21 @@ void VkSandboxRenderer::initializeSystems(IAssetProvider& provider, IScene& scen
         globalLayout
     ));
 
+    m_systems.push_back(std::make_unique<SceneRenderSystem>(
+        m_device,
+        rp,
+        globalLayout,
+        provider
+    ));
+
     m_systems.push_back(std::make_unique<GltfRenderSystem>(
         m_device,
         rp,
         globalLayout,
         provider
     ));
+
+ 
 
     m_systems.push_back(std::make_unique<PointLightRS>(
         m_device,
@@ -156,8 +165,6 @@ void VkSandboxRenderer::updateSystems(FrameInfo& frame, GlobalUbo& ubo, float de
 }
 
 void VkSandboxRenderer::renderSystems(FrameInfo& frame) {
-    // upload camera UBO into m_uboBuffers[frame.frameIndex]...
-    // loop all your render systems:
     for (auto& sys : m_systems) {
         sys->render(frame);
     }
@@ -166,11 +173,8 @@ void VkSandboxRenderer::renderSystems(FrameInfo& frame) {
 void VkSandboxRenderer::recreateSwapchain() {
 
     auto extent = m_window.getExtent();
-    while (extent.width == 0 || extent.width == 0)
-    {
-        glfwWaitEvents();
-        extent = m_window.getExtent();
-    }
+    glfwWaitEvents();
+    extent = m_window.getExtent();
 
     vkDeviceWaitIdle(m_device.device());
 
@@ -314,9 +318,7 @@ void VkSandboxRenderer::createCommandBuffers() {
 }
 
 void VkSandboxRenderer::freeCommandBuffers() {
-    if (m_commandBuffers.empty()) {
-        return;
-    }
+    if (m_commandBuffers.empty()) { return; }
 
     vkFreeCommandBuffers(
         m_device.device(),

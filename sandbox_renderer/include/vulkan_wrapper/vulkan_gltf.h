@@ -242,7 +242,8 @@ namespace vkglTF {
 		BindImages = 0x00000001,
 		RenderOpaqueNodes = 0x00000002,
 		RenderAlphaMaskedNodes = 0x00000004,
-		RenderAlphaBlendedNodes = 0x00000008
+		RenderAlphaBlendedNodes = 0x00000008,
+		RenderNone = 0x00000000
 	};
 
 	/*

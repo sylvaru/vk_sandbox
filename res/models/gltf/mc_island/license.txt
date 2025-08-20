@@ -1,0 +1,11 @@
+Model Information:
+* title:	Viking Island - Minecraft
+* source:	https://sketchfab.com/3d-models/viking-island-minecraft-fd76e3824b7647d98be20d3e2160e018
+* author:	cubical.xyz (https://sketchfab.com/cubical)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Viking Island - Minecraft" (https://sketchfab.com/3d-models/viking-island-minecraft-fd76e3824b7647d98be20d3e2160e018) by cubical.xyz (https://sketchfab.com/cubical) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

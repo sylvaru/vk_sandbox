@@ -63,7 +63,7 @@ void SkyboxIBLrenderSystem::createPipelineLayout(VkDescriptorSetLayout globalSet
 
 	std::array<VkDescriptorSetLayout, 2> layouts = {
 		globalSetLayout,
-		skyboxLayoutHandle // from createSkyboxDescriptorSetLayout()
+		skyboxLayoutHandle
 	};
 
 	VkPipelineLayoutCreateInfo layoutInfo{ VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
@@ -81,13 +81,16 @@ void SkyboxIBLrenderSystem::render(FrameInfo& frameInfo) {
 
 	if (!m_bHasCubemap) return;
 
-	//if (!m_skyboxModel) return;
 	auto skyOpt = frameInfo.scene.getSkyboxObject();
+
 	if (!skyOpt.has_value()) {
 		return; // nothing to draw
 	}
 	IGameObject& skyObj = skyOpt->get();
 
+	if (skyObj.getPreferredRenderTag() != RenderTag::Skybox) {
+		return; // not mine, skip
+	}
 	assert(m_skyboxDescriptorSet != VK_NULL_HANDLE && "Skybox descriptor set is not allocated!");
 
 	m_pipeline->bind(frameInfo.commandBuffer);
@@ -107,17 +110,14 @@ void SkyboxIBLrenderSystem::render(FrameInfo& frameInfo) {
 		frameInfo.commandBuffer,
 		VK_PIPELINE_BIND_POINT_GRAPHICS,
 		m_pipelineLayout,
-		0, // firstSet = 0 (binds set 0 and 1 in this call)
+		0,
 		static_cast<uint32_t>(sets.size()),
 		sets.data(),
 		0,
 		nullptr
 	);
 
-
-
 	std::shared_ptr<IModel> model = m_skyboxModel;
-
 
 	if (!model && skyOpt.has_value()) {
 		IGameObject& skyObj = skyOpt->get();

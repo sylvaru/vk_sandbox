@@ -81,6 +81,7 @@ int GLFWWindowInput::mapKeyToGLFW(SandboxKey key) const {
     case SandboxKey::ESCAPE: return GLFW_KEY_ESCAPE;
     case SandboxKey::SPACE: return GLFW_KEY_SPACE;
     case SandboxKey::LEFT_ALT: return GLFW_KEY_LEFT_ALT;
+    case SandboxKey::LEFT_SHIFT: return GLFW_KEY_LEFT_SHIFT;
         // Add other keys as needed
     default: return -1; // Unknown/unmapped key
     }

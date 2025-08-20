@@ -69,6 +69,9 @@ void ObjRenderSystem::render(FrameInfo& frame)
 	for (auto& kv : frame.gameObjects) {
 
 		auto& obj = kv.second;
+		if (obj->getPreferredRenderTag() != RenderTag::Obj) {
+			continue; // not mine, skip
+		}
 
 		TransformComponent& tc = obj->getTransform();
 		PushConstantData push{};

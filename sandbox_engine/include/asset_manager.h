@@ -136,5 +136,4 @@ private:
 		std::vector<std::shared_ptr<VkSandboxTexture>>& textureList);
 
 
-
 };

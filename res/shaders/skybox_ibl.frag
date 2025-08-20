@@ -1,3 +1,4 @@
+//skybox_ibl.frag
 #version 450 core
 layout(set = 1, binding = 0) uniform samplerCube skybox;
 
@@ -7,5 +8,5 @@ layout(location = 0) out vec4 outColor;
 void main() {
     vec3 dir = normalize(vDirection);
     dir.y = -dir.y;
-    outColor = texture(skybox, dir);
+    outColor = vec4(texture(skybox, dir).rgb, 1.0);
 }

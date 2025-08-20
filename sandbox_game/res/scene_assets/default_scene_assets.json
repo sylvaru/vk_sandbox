@@ -22,6 +22,11 @@
     },
     {
       "type": "gltf",
+      "name": "damaged_helmet",
+      "path": "gltf/DamagedHelmet/glTF/DamagedHelmet.gltf"
+    },
+    {
+      "type": "gltf",
       "name": "cube",
       "path": "gltf/cube.gltf",
       "usage": "skybox"
@@ -30,13 +35,23 @@
       "type": "gltf",
       "name": "cesium_man",
       "path": "gltf/CesiumMan/glTF/CesiumMan.gltf"
+    },
+    {
+      "type": "gltf",
+      "name": "real_scene",
+      "path": "gltf/real_scene/scene.gltf"
+    },   
+    {
+      "type": "gltf",
+      "name": "sponza",
+      "path": "gltf/sponza/sponza.gltf"
     }
   ],
   "textures": [
     {
       "name": "cerberus_albedo",
       "path": "models/cerberus/albedo.ktx",
-      "format": "VK_FORMAT_R8G8B8A8_UNORM"
+      "format": "VK_FORMAT_R8G8B8A8_SRGB"
     },
     {
       "name": "cerberus_normal",

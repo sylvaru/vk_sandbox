@@ -7,6 +7,7 @@
 #include "interfaces/asset_provider_i.h"
 #include "render_systems/obj_render_system.h"
 #include "render_systems/gltf_render_system.h"
+#include "render_systems/scene_rs.h"
 #include "render_systems/skybox_ibl_rs.h"
 #include "render_systems/point_light_rs.h"
 #include "window.h"

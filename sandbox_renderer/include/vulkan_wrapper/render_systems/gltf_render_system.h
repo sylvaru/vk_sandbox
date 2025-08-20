@@ -60,6 +60,9 @@ private:
 	std::unique_ptr<VkSandboxDescriptorSetLayout> m_iblLayout;
 	std::vector<VkDescriptorSet>				  m_iblDescriptorSets;
 
+	std::unique_ptr<VkSandboxDescriptorSetLayout> m_pbrLayout;
+	std::vector<VkDescriptorSet>				  m_pbrDescriptorSets;
+
 
 };
 

@@ -26,7 +26,11 @@ VkDescriptorSetLayout  vkglTF::descriptorSetLayoutImage = VK_NULL_HANDLE;
 VkDescriptorSetLayout  vkglTF::descriptorSetLayoutIbl = VK_NULL_HANDLE;
 VkDescriptorSetLayout  vkglTF::descriptorSetLayoutUbo = VK_NULL_HANDLE;
 VkMemoryPropertyFlags  vkglTF::memoryPropertyFlags = 0;
-uint32_t vkglTF::descriptorBindingFlags =  vkglTF::DescriptorBindingFlags::ImageBaseColor |  vkglTF::DescriptorBindingFlags::ImageNormalMap;
+uint32_t vkglTF::descriptorBindingFlags = vkglTF::DescriptorBindingFlags::ImageBaseColor |
+vkglTF::DescriptorBindingFlags::ImageNormalMap |
+vkglTF::DescriptorBindingFlags::ImageMetallicMap |
+vkglTF::DescriptorBindingFlags::ImageRoughnessMap |
+vkglTF::DescriptorBindingFlags::ImageAOMap;
 
 ////class VkSandboxDevice;
 //
@@ -443,8 +447,7 @@ void vkglTF::Texture::fromglTfImage(tinygltf::Image& gltfimage, std::string path
 
 /*
 	glTF material
-*/
-void vkglTF::Material::createDescriptorSet(
+*/void vkglTF::Material::createDescriptorSet(
 	VkDescriptorPool descriptorPool,
 	VkDescriptorSetLayout descriptorSetLayout,
 	uint32_t descriptorBindingFlags,
@@ -465,11 +468,17 @@ void vkglTF::Material::createDescriptorSet(
 	VkDescriptorImageInfo normalImageInfo = (normalTexture && (descriptorBindingFlags & DescriptorBindingFlags::ImageNormalMap))
 		? normalTexture->descriptor : fallbackTexture->descriptor;
 
-	VkDescriptorImageInfo metallicRoughnessImageInfo = (metallicRoughnessTexture && (descriptorBindingFlags & DescriptorBindingFlags::ImageMetallicMap))
-		? metallicRoughnessTexture->descriptor : fallbackTexture->descriptor;
-
-	// If you have a separate roughness texture, bind it here, otherwise fallback
+	// This is the common glTF case: a single metallicRoughnessTexture packed with
+	// G = roughness, B = metallic.
+	VkDescriptorImageInfo metallicImageInfo = fallbackTexture->descriptor;
 	VkDescriptorImageInfo roughnessImageInfo = fallbackTexture->descriptor;
+
+	if (metallicRoughnessTexture &&
+		((descriptorBindingFlags & DescriptorBindingFlags::ImageMetallicMap) ||
+			(descriptorBindingFlags & DescriptorBindingFlags::ImageRoughnessMap))) {
+		metallicImageInfo = metallicRoughnessTexture->descriptor;
+		roughnessImageInfo = metallicRoughnessTexture->descriptor; // <— important
+	}
 
 	VkDescriptorImageInfo occlusionImageInfo = (occlusionTexture && (descriptorBindingFlags & DescriptorBindingFlags::ImageAOMap))
 		? occlusionTexture->descriptor : fallbackTexture->descriptor;
@@ -484,10 +493,12 @@ void vkglTF::Material::createDescriptorSet(
 		VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, nullptr, descriptorSet, 1, 0, 1,
 		VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &normalImageInfo, nullptr, nullptr
 	};
+	// binding 2 -> metallic (either dedicated metallic map or packed MR texture)
 	writeDescriptorSets[2] = {
 		VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, nullptr, descriptorSet, 2, 0, 1,
-		VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &metallicRoughnessImageInfo, nullptr, nullptr
+		VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &metallicImageInfo, nullptr, nullptr
 	};
+	// binding 3 -> roughness (either dedicated roughness map or same packed MR texture)
 	writeDescriptorSets[3] = {
 		VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, nullptr, descriptorSet, 3, 0, 1,
 		VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &roughnessImageInfo, nullptr, nullptr
@@ -499,6 +510,7 @@ void vkglTF::Material::createDescriptorSet(
 
 	vkUpdateDescriptorSets(device->m_logicalDevice, static_cast<uint32_t>(writeDescriptorSets.size()), writeDescriptorSets.data(), 0, nullptr);
 }
+
 
 
 /*
@@ -1027,7 +1039,14 @@ void vkglTF::Model::loadImages(tinygltf::Model& gltfModel, VkSandboxDevice* devi
 {
 	for (tinygltf::Image& image : gltfModel.images) {
 		 Texture texture;
-		texture.fromglTfImage(image, m_path, device, transferQueue, false);
+
+		 bool isSrgb = false;
+		 std::string lowerName = image.uri;
+		 std::transform(lowerName.begin(), lowerName.end(), lowerName.begin(), ::tolower);
+		 if (lowerName.find("albedo") != std::string::npos || lowerName.find("basecolor") != std::string::npos || lowerName.find("base_color") != std::string::npos) {
+			 isSrgb = true;
+		 }
+		texture.fromglTfImage(image, m_path, device, transferQueue, isSrgb);
 		texture.index = static_cast<uint32_t>(m_textures.size());
 		m_textures.push_back(texture);
 	}
@@ -1279,7 +1298,11 @@ void  vkglTF::Model::loadFromFile(std::string filename, VkSandboxDevice* device,
 	}
 	uint32_t materialCount = 0;
 	for (auto& m : m_materials) {
-		if (m.baseColorTexture) ++materialCount;
+		if (m.baseColorTexture || m.normalTexture || m.metallicRoughnessTexture || m.occlusionTexture)
+		++materialCount;
+	}
+	if (materialCount == 0 && !m_materials.empty()) {
+		materialCount = static_cast<uint32_t>(m_materials.size());
 	}
 
 	std::vector<VkDescriptorPoolSize> poolSizes;
@@ -1373,8 +1396,8 @@ void  vkglTF::Model::loadFromFile(std::string filename, VkSandboxDevice* device,
 			}
 
 			for (auto& material : m_materials) {
-				if (material.baseColorTexture != nullptr) {
-					material.createDescriptorSet(m_descriptorPool,  descriptorSetLayoutImage, descriptorBindingFlags, &emptyTexture);
+				if (material.baseColorTexture || material.normalTexture || material.metallicRoughnessTexture || material.occlusionTexture) {
+					material.createDescriptorSet(m_descriptorPool, descriptorSetLayoutImage, descriptorBindingFlags, &emptyTexture);
 				}
 			}
 		}

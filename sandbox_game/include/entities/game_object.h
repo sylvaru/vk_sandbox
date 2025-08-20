@@ -62,6 +62,10 @@ public:
         return m_cubemapTextureName; // your stored string
     }
 
+    RenderTag getPreferredRenderTag() const override { return m_renderTag; }
+
+    void setRenderTag(RenderTag tag) { m_renderTag = tag; }
+
     TransformComponent m_transform;
     std::shared_ptr<IModel> m_pModel;
     glm::vec3 m_color{};
@@ -72,4 +76,5 @@ public:
     id_t m_id;
     bool m_bIsSkybox = false;
 
+    RenderTag m_renderTag{ RenderTag::Auto };
 };
