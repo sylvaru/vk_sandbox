@@ -6,7 +6,9 @@
 SandboxPlayer::SandboxPlayer(std::shared_ptr<IWindowInput> input)
     : m_pInput(std::move(input))
     , m_camera(glm::vec3(0.f, 0.f, 3.f))
+   // , m_controller(m_moveSpeed, m_mouseSensitivity)
 {
+
 }
 
 void SandboxPlayer::onInit() {  

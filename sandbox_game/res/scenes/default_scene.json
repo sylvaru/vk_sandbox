@@ -10,8 +10,8 @@
       "special": "lights",
       "renderSystem":  "pointLight",
       "count": 8,
-      "radius": 5.0,
-      "height": 10.0,
+      "radius": 10.0,
+      "height": 6.0,
       "intensity": 0.092,
       "colors": [
         [ 1.0, 0.95, 0.85 ],

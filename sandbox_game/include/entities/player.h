@@ -34,7 +34,7 @@ private:
     SandboxMNKController m_controller;
 
     // Configuration
-    float m_mouseSensitivity = 0.0025f;
-    float m_moveSpeed = 30.0f;
+    float m_mouseSensitivity = 0.15f; // <-- fixed value
+    float m_moveSpeed = 4.0f;
 
 };

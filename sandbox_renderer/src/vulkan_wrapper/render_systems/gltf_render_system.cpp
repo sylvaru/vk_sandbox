@@ -72,8 +72,6 @@ void GltfRenderSystem::init(
 
     }
 
-    // --- Allocate & write PBR sets (set = 2) from JSON names ---
- // cerberus_* come from your default_scene_assets.json
     m_pbrDescriptorSets.resize(frameCount);
     for (uint32_t i = 0; i < frameCount; i++) {
         VkDescriptorSet set;
@@ -87,7 +85,7 @@ void GltfRenderSystem::init(
                 (int)info.imageLayout
             );
             };
-
+        
         VkDescriptorImageInfo albedoInfo = m_assets.getTextureDescriptor("cerberus_albedo");
         VkDescriptorImageInfo normalInfo = m_assets.getTextureDescriptor("cerberus_normal");
         VkDescriptorImageInfo metallicInfo = m_assets.getTextureDescriptor("cerberus_metallic");
@@ -285,10 +283,6 @@ void GltfRenderSystem::render(FrameInfo& frame) {
                 case vkglTF::Material::ALPHAMODE_BLEND:
                 default:                                  m_blendPipeline->bind(frame.commandBuffer);  break;
                 }
-
-                // IMPORTANT: Don't let vkglTF bind images (we already did set=2)
-                // So do NOT pass RenderFlags::BindImages here.
-
 
                 model->gltfDraw(frame.commandBuffer, vkglTF::RenderFlags::RenderNone, m_pipelineLayout, 2);
                 warnedThisFrame = false;
