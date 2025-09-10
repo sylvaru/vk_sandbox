@@ -25,15 +25,13 @@ struct PushConstantData {
 ObjRenderSystem::ObjRenderSystem(VkSandboxDevice& device, VkRenderPass renderPass, VkDescriptorSetLayout globalSetLayout)
 	: m_device(device), m_globalSetLayout(globalSetLayout)
 {
-
+	init(device, renderPass, globalSetLayout);
 }
 
 void ObjRenderSystem::init(
 	VkSandboxDevice& device,
 	VkRenderPass renderPass,
-	VkDescriptorSetLayout globalSetLayout,
-	VkSandboxDescriptorPool& descriptorPool,
-	size_t frameCount)
+	VkDescriptorSetLayout globalSetLayout)
 {
 	assert(&device == &m_device);
 

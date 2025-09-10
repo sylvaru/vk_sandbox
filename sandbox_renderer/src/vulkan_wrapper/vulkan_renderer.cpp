@@ -21,9 +21,9 @@ void VkSandboxRenderer::createGlobalDescriptorObjects() {
 
 
     m_pool = VkSandboxDescriptorPool::Builder{ m_device }
-        .setMaxSets(FrameCount + 512) // allow plenty of descriptor sets for materials
+        .setMaxSets(FrameCount + 512)
         .addPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, FrameCount)
-        .addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 256) // accomodate many material textures
+        .addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 256)
         .setPoolFlags(VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT)
         .build();
 
@@ -75,7 +75,7 @@ void VkSandboxRenderer::initializeSystems(IAssetProvider& provider, IScene& scen
     VkDescriptorSetLayout globalLayout = m_globalLayout->getDescriptorSetLayout();
     VkSandboxDescriptorPool& pool = *m_pool;
 
-    auto skyboxSystem = std::make_unique<SkyboxIBLrenderSystem>(m_device, rp, globalLayout);
+    auto skyboxSystem = std::make_unique<SkyboxIBLrenderSystem>(m_device, rp, globalLayout, pool);
 
     // Try to get skybox object from scene
     if (auto skyboxOpt = scene.getSkyboxObject()) {
@@ -114,6 +114,8 @@ void VkSandboxRenderer::initializeSystems(IAssetProvider& provider, IScene& scen
         spdlog::warn("No skybox object found in scene");
     }
 
+    skyboxSystem->init(m_device, rp, globalLayout, pool); // deferred init
+
     // Insert skybox system FIRST
     m_systems.push_back(std::move(skyboxSystem));
 
@@ -134,10 +136,10 @@ void VkSandboxRenderer::initializeSystems(IAssetProvider& provider, IScene& scen
         m_device,
         rp,
         globalLayout,
-        provider
+        pool,
+        provider,
+        FrameCount
     ));
-
- 
 
     m_systems.push_back(std::make_unique<PointLightRS>(
         m_device,
@@ -145,17 +147,6 @@ void VkSandboxRenderer::initializeSystems(IAssetProvider& provider, IScene& scen
         globalLayout
     ));
 
-
-    // Now call init() hooks
-    for (auto& sys : m_systems) {
-        sys->init(
-            m_device,
-            rp,
-            globalLayout,
-            pool,
-            FrameCount
-        );
-    }
 }
 void VkSandboxRenderer::updateSystems(FrameInfo& frame, GlobalUbo& ubo, float deltaTime)
 {

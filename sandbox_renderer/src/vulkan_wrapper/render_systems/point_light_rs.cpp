@@ -26,14 +26,12 @@ struct PointLightPushConstants {
 PointLightRS::PointLightRS(VkSandboxDevice& device, VkRenderPass renderPass, VkDescriptorSetLayout globalSetLayout)
     : m_device(device), m_globalSetLayout(globalSetLayout)
 {
-
+    init(device, renderPass, globalSetLayout);
 }
 void PointLightRS::init(
     VkSandboxDevice& device,
     VkRenderPass renderPass,
-    VkDescriptorSetLayout globalSetLayout,
-    VkSandboxDescriptorPool& descriptorPool,
-    size_t frameCount)
+    VkDescriptorSetLayout globalSetLayout)
 {
     // Optional: assert device consistency
     assert(&device == &m_device);

@@ -33,9 +33,7 @@ public:
 	void init(
 		VkSandboxDevice& device,
 		VkRenderPass            renderPass,
-		VkDescriptorSetLayout   globalSetLayout,
-		VkSandboxDescriptorPool& descriptorPool,
-		size_t frameCount)override;
+		VkDescriptorSetLayout   globalSetLayout);
 
 	void render(FrameInfo& frame) override;
 

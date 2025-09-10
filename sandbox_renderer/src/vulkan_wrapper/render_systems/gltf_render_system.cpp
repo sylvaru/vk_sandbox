@@ -8,13 +8,15 @@ GltfRenderSystem::GltfRenderSystem(
     VkSandboxDevice& device,
     VkRenderPass renderPass,
     VkDescriptorSetLayout globalSetLayout,
-    IAssetProvider& assets
+    VkSandboxDescriptorPool& descriptorPool,
+    IAssetProvider& assets,
+    size_t frameCount
 ) :
     m_device(device),
     m_globalSetLayout(globalSetLayout),
     m_assets(assets)
 {
-
+    init(device,renderPass,globalSetLayout, descriptorPool, frameCount);
 }
 
 GltfRenderSystem::~GltfRenderSystem() {

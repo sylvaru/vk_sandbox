@@ -24,7 +24,14 @@
 
 class GltfRenderSystem : public IRenderSystem {
 public:
-	GltfRenderSystem(VkSandboxDevice& device, VkRenderPass renderPass, VkDescriptorSetLayout globalSetLayout, IAssetProvider& assets);
+	GltfRenderSystem(
+		VkSandboxDevice& device,
+		VkRenderPass renderPass,
+		VkDescriptorSetLayout globalSetLayout,
+		VkSandboxDescriptorPool& descriptorPool,
+		IAssetProvider& assets,
+		size_t frameCount
+		);
 	~GltfRenderSystem();
 
 	GltfRenderSystem(const GltfRenderSystem&) = delete;
@@ -35,7 +42,7 @@ public:
 		VkRenderPass            renderPass,
 		VkDescriptorSetLayout   globalSetLayout,
 		VkSandboxDescriptorPool& descriptorPool,
-		size_t frameCount)override;
+		size_t frameCount);
 
 	void render(FrameInfo& frame) override;
 

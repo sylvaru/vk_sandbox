@@ -12,7 +12,7 @@ SceneRenderSystem::SceneRenderSystem(
     m_globalSetLayout(globalSetLayout),
     m_assets(assets)
 {
-
+    init(device, renderPass, globalSetLayout);
 }
 
 SceneRenderSystem::~SceneRenderSystem() {
@@ -23,9 +23,7 @@ SceneRenderSystem::~SceneRenderSystem() {
 void SceneRenderSystem::init(
     VkSandboxDevice& device,
     VkRenderPass renderPass,
-    VkDescriptorSetLayout globalSetLayout,
-    VkSandboxDescriptorPool& descriptorPool,
-    size_t frameCount
+    VkDescriptorSetLayout globalSetLayout
 ) {
     m_globalSetLayout = globalSetLayout;
 

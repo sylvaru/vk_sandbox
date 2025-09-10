@@ -26,13 +26,13 @@ public:
 
     void run(std::unique_ptr<IGameLayer> game);
 private:
-    SandboxWindow                       m_window{ WIDTH, HEIGHT, "A vulkan place" };
-    VkSandboxInstance                   m_vkinstance{};
-    VkSandboxDevice                     m_device{ m_vkinstance, m_window };
-    AssetManager                        m_assetManager{ m_device };
-    VkSandboxRenderer                   m_renderer{ m_device, m_window };
+    SandboxWindow                 m_window;
+    VkSandboxInstance             m_vkinstance;
+    VkSandboxDevice               m_device;
+    AssetManager                  m_assetManager;
+    VkSandboxRenderer             m_renderer;
+    std::shared_ptr<IWindowInput> m_windowInput;
  
-    std::shared_ptr<IWindowInput>       m_windowInput;
 
 public:
     std::shared_ptr<IWindowInput> getInputSharedPtr() {

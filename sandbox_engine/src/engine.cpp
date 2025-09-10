@@ -6,7 +6,14 @@
 #include <chrono>
 
 
-SandboxEngine::SandboxEngine() {
+SandboxEngine::SandboxEngine()
+	: m_window(WIDTH, HEIGHT, "A vulkan place")
+	, m_vkinstance()
+	, m_device(m_vkinstance, m_window)
+	, m_assetManager(m_device)
+	, m_renderer(m_device, m_window)
+	, m_windowInput(std::make_shared<GLFWWindowInput>(m_window.getGLFWwindow()))
+{
 	m_assetManager.preloadGlobalAssets();
 	initialize();
 }

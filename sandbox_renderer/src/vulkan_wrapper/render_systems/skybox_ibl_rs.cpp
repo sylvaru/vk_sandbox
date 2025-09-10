@@ -2,7 +2,11 @@
 #include "interfaces/game_object_i.h"
 
 
-SkyboxIBLrenderSystem::SkyboxIBLrenderSystem(VkSandboxDevice& device, VkRenderPass renderPass, VkDescriptorSetLayout globalSetLayout)
+SkyboxIBLrenderSystem::SkyboxIBLrenderSystem(
+	VkSandboxDevice& device,
+	VkRenderPass renderPass,
+	VkDescriptorSetLayout globalSetLayout,
+	VkSandboxDescriptorPool& pool)
 	: m_device{ device }, m_pipelineLayout{ VK_NULL_HANDLE }, m_skyboxDescriptorSet(VK_NULL_HANDLE), m_bHasCubemap(false)
 {
 }
@@ -18,8 +22,7 @@ void SkyboxIBLrenderSystem::init(
 	VkSandboxDevice& device,
 	VkRenderPass renderPass,
 	VkDescriptorSetLayout globalSetLayout,
-	VkSandboxDescriptorPool& descriptorPool,
-	size_t frameCount)
+	VkSandboxDescriptorPool& descriptorPool)
 {
 	assert(&device == &m_device);
 	m_descriptorPool = &descriptorPool;

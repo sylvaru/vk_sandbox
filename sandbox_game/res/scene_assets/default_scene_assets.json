@@ -7,21 +7,6 @@
     },
     {
       "type": "gltf",
-      "name": "sponza",
-      "path": "gltf/sponza/sponza.gltf"
-    },
-    {
-      "type": "gltf",
-      "name": "flight_helmet",
-      "path": "gltf/FlightHelmet/glTF/FlightHelmet.gltf"
-    },
-    {
-      "type": "gltf",
-      "name": "damaged_helmet",
-      "path": "gltf/DamagedHelmet/glTF/DamagedHelmet.gltf"
-    },
-    {
-      "type": "gltf",
       "name": "cerberus",
       "path": "gltf/cerberus/cerberus.gltf"
     },
@@ -30,17 +15,7 @@
       "name": "cube",
       "path": "gltf/cube.gltf",
       "usage": "skybox"
-    },
-    {
-      "type": "gltf",
-      "name": "cesium_man",
-      "path": "gltf/CesiumMan/glTF/CesiumMan.gltf"
-    },
-    {
-      "type": "gltf",
-      "name": "real_scene",
-      "path": "gltf/real_scene/scene.gltf"
-    },   
+    }, 
     {
       "type": "gltf",
       "name": "sponza",
@@ -71,31 +46,6 @@
     {
       "name": "cerberus_roughness",
       "path": "models/cerberus/roughness.ktx",
-      "format": "VK_FORMAT_R8_UNORM"
-    },   
-    {
-      "name": "damaged_helmet_albedo",
-      "path": "models/DamagedHelmet/glTF/Default_albedo.jpg",
-      "format": "VK_FORMAT_R8G8B8A8_SRGB"
-    },
-    {
-      "name": "damaged_helmet_normal",
-      "path": "mmodels/DamagedHelmet/glTF/Default_normal.jpg",
-      "format": "VK_FORMAT_R8G8B8A8_UNORM"
-    },
-    {
-      "name": "damaged_helmet_ao",
-      "path": "models/DamagedHelmet/glTF/Default_AO.jpg",
-      "format": "VK_FORMAT_R8_UNORM"
-    },
-    {
-      "name": "damaged_helmet_metallic_roughness",
-      "path": "models/DamagedHelmet/glTF/Default_metalRoughness.jpg",
-      "format": "VK_FORMAT_R8_UNORM"
-    },
-    {
-      "name": "damaged_helmet_emmisive",
-      "path": "models/DamagedHelmet/glTF/Default_emissive.jpg",
       "format": "VK_FORMAT_R8_UNORM"
     }
   ],

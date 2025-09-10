@@ -15,7 +15,12 @@
 
 class SkyboxIBLrenderSystem : public IRenderSystem {
 public:
-    SkyboxIBLrenderSystem(VkSandboxDevice& device, VkRenderPass renderPass, VkDescriptorSetLayout globalSetLayout);
+    SkyboxIBLrenderSystem(
+        VkSandboxDevice& device,
+        VkRenderPass renderPass,
+        VkDescriptorSetLayout globalSetLayout,
+        VkSandboxDescriptorPool& pool);
+
     ~SkyboxIBLrenderSystem();
 
     SkyboxIBLrenderSystem(const SkyboxIBLrenderSystem&) = delete;
@@ -25,8 +30,7 @@ public:
         VkSandboxDevice& device,
         VkRenderPass            renderPass,
         VkDescriptorSetLayout   globalSetLayout,
-        VkSandboxDescriptorPool& descriptorPool,
-        size_t frameCount)override;
+        VkSandboxDescriptorPool& descriptorPool);
 
     void render(FrameInfo& frameInfo) override;
 
