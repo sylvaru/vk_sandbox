@@ -6,10 +6,18 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # ----------------------------
-# Force static CRT for MSVC
+# Force dynamic CRT for MSVC (required for hot reload / edit & continue)
 # ----------------------------
 if(MSVC)
-    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreadedDLL")
+endif()
+
+# ----------------------------
+# Enable hot reloading
+# ----------------------------
+if (MSVC AND WIN32 AND NOT MSVC_VERSION VERSION_LESS 142)
+    add_compile_options($<$<CONFIG:Debug>:/ZI>)
+    add_link_options($<$<CONFIG:Debug>:/INCREMENTAL>)
 endif()
 
 # ----------------------------
@@ -35,7 +43,6 @@ add_compile_definitions(
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
-
 
 
 

@@ -7,7 +7,7 @@
 
 
 SandboxEngine::SandboxEngine()
-	: m_window(WIDTH, HEIGHT, "A vulkan place")
+	: m_window(WIDTH, HEIGHT, "A time in space")
 	, m_vkinstance()
 	, m_device(m_vkinstance, m_window)
 	, m_assetManager(m_device)

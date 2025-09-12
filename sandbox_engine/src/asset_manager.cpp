@@ -470,7 +470,7 @@ void AssetManager::generatePrefilteredEnvMap() {
         VkFramebuffer framebuffer;
     } offscreen;
 
-    // Offfscreen framebuffer
+    // Offscreen framebuffer
     {
         // Color attachment
         VkImageCreateInfo imageCreateInfo = vkinit::imageCreateInfo();

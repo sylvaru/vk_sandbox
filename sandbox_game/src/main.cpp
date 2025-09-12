@@ -14,10 +14,6 @@
 
 int main()
 {
-
-
-
-  
     SandboxEngine engine;
 
     std::shared_ptr<IWindowInput> windowInput = engine.getInputSharedPtr();
