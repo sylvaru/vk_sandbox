@@ -2,28 +2,19 @@
 #include <memory>
 #include "engine.h"
 #include "game/game_layer.h"
-#include "asset_manager.h"
-#include <sstream>
-#include <utility>
-#include <string>
-#include <iostream>
-#include <print>
-
-
-
 
 int main()
 {
-    SandboxEngine engine;
+    Core::AppSpecification appSpec;
+    appSpec.Name = "A Space In Time";
+    appSpec.windowSpec.Width = 1080;
+    appSpec.windowSpec.Height = 1080;
 
-    std::shared_ptr<IWindowInput> windowInput = engine.getInputSharedPtr();
-    AssetManager& assetManager = engine.getAssetManager();
+    Core::SandboxEngine engine(appSpec);
 
-    auto gameLayer = std::make_unique<MyGameLayer>(windowInput, assetManager);
+    engine.pushLayer<MyGameLayer>();
 
-    engine.initLayer(gameLayer.get());
-
-    engine.run(std::move(gameLayer));
+    engine.runApp();
 
     return 0;
 }

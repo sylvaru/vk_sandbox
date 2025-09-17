@@ -11,41 +11,57 @@
 #include "asset_manager.h"
 
 
+namespace Core {
 
-class SandboxEngine {
-public:
-    static constexpr uint32_t WIDTH = 1440;
-    static constexpr uint32_t HEIGHT = 810;
+    struct AppSpecification {
+        std::string Name = "";
 
-    SandboxEngine();
-    ~SandboxEngine();
+        struct WindowSpecification {
+            uint32_t Width = 1920;
+            uint32_t Height = 1080;
+        } windowSpec;
+    };
+    class SandboxEngine {
+    public:
+       
+        explicit SandboxEngine(const AppSpecification& appSpec = AppSpecification());
+        ~SandboxEngine();
 
-    void initialize();
+        void initialize();
 
-    void initLayer(IGameLayer* game);
+        void initLayer(IGameLayer* game);
 
-    void run(std::unique_ptr<IGameLayer> game);
-private:
-    SandboxWindow                 m_window;
-    VkSandboxInstance             m_vkinstance;
-    VkSandboxDevice               m_device;
-    AssetManager                  m_assetManager;
-    VkSandboxRenderer             m_renderer;
-    std::shared_ptr<IWindowInput> m_windowInput;
- 
+        template<typename T, typename... Args>
+        void pushLayer(Args&&... args) {
+            static_assert(std::is_base_of<IGameLayer, T>::value, "T must derive from IGameLayer");
+            auto layer = std::make_unique<T>(std::forward<Args>(args)...);
+            // give layer a chance to access engine services
+            layer->onAttach(this);
+            m_layers.push_back(std::move(layer));
+        }
 
-public:
-    std::shared_ptr<IWindowInput> getInputSharedPtr() {
-        return m_windowInput;
-    }
-    AssetManager& getAssetManager() { return m_assetManager; }
+        void runApp();
+    private:
+        AppSpecification              m_appSpec;
+        SandboxWindow                 m_window;
+        VkSandboxInstance             m_vkinstance;
+        VkSandboxDevice               m_device;
+        AssetManager            m_assetManager;
+        VkSandboxRenderer             m_renderer;
+        std::shared_ptr<IWindowInput> m_windowInput;
 
-    ISandboxRenderer& renderer();
-    void toggleCursorLock();
-    void setupInputCallbacks();
-    void processInput();
+        std::vector<std::unique_ptr<IGameLayer>> m_layers; // layer stack
+    public:
+        std::shared_ptr<IWindowInput> getInputSharedPtr() {
+            return m_windowInput;
+        }
+        AssetManager& getAssetManager() { return m_assetManager; }
 
-    bool m_cursorLocked = true;
+        ISandboxRenderer& renderer();
+        void toggleCursorLock();
+        void setupInputCallbacks();
+        void processInput();
 
-
-};
+        bool m_cursorLocked = true;
+    };
+}

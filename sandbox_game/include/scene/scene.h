@@ -14,7 +14,7 @@
 
 class SandboxScene : public IScene {
 public:
-	SandboxScene(std::shared_ptr<IWindowInput> input, AssetManager& assetManager);      // pass input so your Player can read it
+	SandboxScene(std::shared_ptr<IWindowInput> input, Core::AssetManager& assetManager);      // pass input so your Player can read it
 	void init() override;                 // load models, spawn entities
 	void update(float dt) override;        // advance all entities
 
@@ -48,7 +48,7 @@ public:
 
 private:
 	std::shared_ptr<IWindowInput> m_pInput;
-	AssetManager& m_assetManager;
+	Core::AssetManager& m_assetManager;
 
 	std::vector<std::shared_ptr<SandboxPlayer>> m_players;
 	std::unordered_map<unsigned int, std::shared_ptr<IGameObject>>  m_gameObjects;

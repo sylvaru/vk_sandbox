@@ -4,12 +4,13 @@
 #include <cassert>
 #include <spdlog/spdlog.h>
 
-VkSandboxRenderer::VkSandboxRenderer(VkSandboxDevice& device, SandboxWindow& window)
+VkSandboxRenderer::VkSandboxRenderer(
+    VkSandboxDevice& device,
+    SandboxWindow& window)
     : m_device(device),
     m_window(window)
 {
     recreateSwapchain();
-
     createGlobalDescriptorObjects();
     allocateGlobalDescriptors();
 }
@@ -69,7 +70,10 @@ void VkSandboxRenderer::allocateGlobalDescriptors() {
     
 }
 
-void VkSandboxRenderer::initializeSystems(IAssetProvider& provider, IScene& scene) {
+void VkSandboxRenderer::initializeSystems(
+    IAssetProvider& provider,
+    IScene& scene) 
+{
     // grab the things every system will need
     VkRenderPass rp = m_swapchain->getRenderPass();
     VkDescriptorSetLayout globalLayout = m_globalLayout->getDescriptorSetLayout();

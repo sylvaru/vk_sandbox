@@ -68,8 +68,6 @@ function(register_runtime_dlls TARGET DLL_DIR)
 endfunction()
 
 
-
-
 # ----------------------------
 # Core targets
 # ----------------------------

@@ -11,7 +11,7 @@
 
 using json = nlohmann::json;
 
-SandboxScene::SandboxScene(std::shared_ptr<IWindowInput> input, AssetManager& assetManager)
+SandboxScene::SandboxScene(std::shared_ptr<IWindowInput> input, Core::AssetManager& assetManager)
 	: m_pInput(std::move(input)), m_assetManager(assetManager) 
 {
 }
