@@ -162,10 +162,9 @@ void SceneRenderSystem::render(FrameInfo& frame) {
 
          
                 std::array<VkDescriptorSet, 2> sets = {
-                    frame.globalDescriptorSet,               // set 0
+                    frame.globalDescriptorSet,
                     node->mesh->uniformBuffer.descriptorSet
                 };
-
 
 
                 vkCmdBindDescriptorSets(

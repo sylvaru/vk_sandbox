@@ -9,9 +9,9 @@
 
 namespace Core {
 
-	SandboxEngine::SandboxEngine(const AppSpecification& appSpec)
-		: m_appSpec(appSpec)
-		, m_window(m_appSpec.windowSpec.Width, m_appSpec.windowSpec.Height, m_appSpec.Name)
+	SandboxEngine::SandboxEngine(const EngineSpecification& engineSpec)
+		: m_engineSpec(engineSpec)
+		, m_window(m_engineSpec.windowSpec.Width, m_engineSpec.windowSpec.Height, m_engineSpec.Name)
 		, m_vkinstance()
 		, m_device(m_vkinstance, m_window)
 		, m_assetManager(m_device)
@@ -25,7 +25,6 @@ namespace Core {
 
 	}
 	void SandboxEngine::initialize() {
-		m_windowInput = std::make_shared<GLFWWindowInput>(m_window.getGLFWwindow());
 		if (auto* userData = static_cast<WindowUserData*>(m_windowInput->getWindowUserPointer())) {
 			userData->input = m_windowInput.get();
 		}

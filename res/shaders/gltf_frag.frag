@@ -14,7 +14,7 @@ struct PointLight { vec4 position; vec4 color; };
 layout(set = 0, binding = 0) uniform GlobalUbo {
     mat4 projection;
     mat4 view;
-    vec4 ambientLightColor; // .rgb = color, .a = intensity (how you use it is up to you)
+    vec4 ambientLightColor;
     vec4 viewPos;
     PointLight pointLights[10];
     int numLights;
@@ -30,114 +30,101 @@ layout(set = 3, binding = 0) uniform sampler2D brdfLUT;
 layout(set = 3, binding = 1) uniform samplerCube irradianceMap;
 layout(set = 3, binding = 2) uniform samplerCube prefilteredMap;
 
-layout(constant_id = 0) const bool alphaMask = false;
-layout(constant_id = 1) const float cutoff = 0.5;
+// Debug modes
+// 0 = final, 1=albedo,2=irradiance,3=prefilteredColor,4=brdf,5=F0,6=kS,7=kD,8=diffuseTerm,9=specularIBL,
+//10=worldNormal,11=roughness,12=metallic,13=ao
+layout(constant_id = 0) const int DEBUG_MODE = 0;
 
-// DEBUG: set to 0 for normal, 1 = Lo (direct), 2 = diffuseIBL, 3 = specularIBL, 4 = albedo
-layout(constant_id = 2) const int DEBUG_OUTPUT = 0;
+// Specialization constants to force values (set via VkSpecializationInfo or leave default)
+layout(constant_id = 1) const int FORCE_METALLIC = 0;
+layout(constant_id = 2) const float METALLIC_VALUE = 0.0;
+layout(constant_id = 3) const int FORCE_ROUGHNESS = 0;
+layout(constant_id = 4) const float ROUGHNESS_VALUE = 0.5;
+layout(constant_id = 5) const int FORCE_AO = 0;
+layout(constant_id = 6) const float AO_VALUE = 1.0;
+layout(constant_id = 7) const int FLIP_MATERIAL_UV = 1; // 1 = flip material UVs, 0 = don't
+layout(constant_id = 8) const int FLIP_ENV_MAP_Y = 1; // 0 = no flip, 1 = flip Y for env sampling
 
 const float PI = 3.14159265359;
-const float EXPOSURE = 1.0; // tweak this if things are too dark/light
 
-// utility
+// Utilities
+vec3 linearToSrgb(vec3 c) { return pow(c, vec3(1.0 / 2.2)); }
 vec3 srgbToLinear(vec3 c) { return pow(c, vec3(2.2)); }
-vec3 linearToSrgb(vec3 c) { return pow(c, vec3(1.0/2.2)); }
 
 vec3 fresnelSchlick(float cosTheta, vec3 F0) {
     return F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0);
 }
-float DistributionGGX(vec3 N, vec3 H, float roughness) {
-    float a = roughness*roughness;
-    float a2 = a*a;
-    float NdotH = max(dot(N,H),0.0);
-    float denom = NdotH*NdotH*(a2-1.0)+1.0;
-    return a2 / (PI * denom*denom);
-}
-float GeometrySchlickGGX(float NdotV, float roughness) {
-    float k = (roughness+1.0)*(roughness+1.0)/8.0;
-    return NdotV / (NdotV*(1.0-k)+k);
-}
-float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness) {
-    return GeometrySchlickGGX(max(dot(N,V),0.0), roughness) *
-           GeometrySchlickGGX(max(dot(N,L),0.0), roughness);
-}
 
 void main() {
-    // --- albedo/alpha ---
-    vec4 baseColorTex = texture(albedoMap, inUV);
-    vec3 albedo = srgbToLinear(baseColorTex.rgb); // assume your textures are sRGB -> convert to linear if required
-    float alpha = baseColorTex.a * inColor.a;
-    if(alphaMask && alpha < cutoff) discard;
+    // flip y
+    vec2 uvNoFlip = inUV;
+    vec2 uvMaterial = (FLIP_MATERIAL_UV != 0) ? vec2(inUV.x, 1.0 - inUV.y) : inUV;
 
-    // --- material ---
-    float metallic = texture(metallicMap, inUV).r;
-    float roughness = clamp(texture(roughnessMap, inUV).r, 0.04, 1.0);
-    float ao = texture(aoMap, inUV).r;
 
-    // --- normal ---
+    // --- Albedo ---
+    vec4 albedoSample = texture(albedoMap, uvMaterial);
+    vec3 albedo = albedoSample.rgb * inColor.rgb;
+    float alpha = albedoSample.a * inColor.a;
+
+    // --- MR/AO sampling ---
+    float texMetallic = texture(metallicMap, uvMaterial).r;
+    float texRoughness = texture(roughnessMap, uvMaterial).r;
+    float texAO = texture(aoMap, uvMaterial).r;
+
+    float metallic = (FORCE_METALLIC != 0) ? METALLIC_VALUE : texMetallic;
+    float roughness = (FORCE_ROUGHNESS != 0) ? clamp(ROUGHNESS_VALUE, 0.04, 1.0) : clamp(texRoughness, 0.04, 1.0);
+    float ao = (FORCE_AO != 0) ? AO_VALUE : texAO;
+
+    // --- Normal (TBN) ---
+    // sample normal map (assumes normal map is in tangent space, stored in [0,1] -> remap to [-1,1])
+    vec3 tNormal = texture(normalMap, uvMaterial).xyz * 2.0 - 1.0;
+
+    // Reconstruct TBN from vertex attributes
     vec3 N = normalize(inNormal);
     vec3 T = normalize(inTangent.xyz);
-    vec3 B = cross(N, T) * inTangent.w;
+    vec3 B = normalize(cross(N, T) * inTangent.w); // inTangent.w stores handedness
     mat3 TBN = mat3(T, B, N);
-    vec3 sampledNormal = texture(normalMap, inUV).xyz * 2.0 - 1.0;
-    N = normalize(TBN * sampledNormal);
 
-    // --- view/reflection ---
+    // Transform normal from tangent space to world space
+    vec3 worldNormal = normalize(TBN * tNormal);
+
+    // view vector & reflection
     vec3 V = normalize(inViewVec);
-    vec3 R = reflect(-V, N);
+    float NdotV = clamp(dot(worldNormal, V), 0.0, 1.0);
+    vec3 R = normalize(reflect(-V, worldNormal));
 
-    // --- F0 ---
-    vec3 F0 = mix(vec3(0.04), albedo, metallic);
-
-    // --- direct lighting (Lo) ---
-    vec3 Lo = vec3(0.0);
-    for (int i = 0; i < ubo.numLights; ++i) {
-        vec3 L = normalize(ubo.pointLights[i].position.xyz - inWorldPos);
-        vec3 H = normalize(V + L);
-        float distance = length(ubo.pointLights[i].position.xyz - inWorldPos);
-        float attenuation = 1.0 / max(0.0001, distance * distance);
-        vec3 radiance = ubo.pointLights[i].color.rgb * ubo.pointLights[i].color.a * attenuation;
-
-        float NDF = DistributionGGX(N, H, roughness);
-        float G = GeometrySmith(N, V, L, roughness);
-        vec3 F = fresnelSchlick(max(dot(H, V), 0.0), F0);
-        vec3 numerator = NDF * G * F;
-        float denominator = 4.0 * max(dot(N, V), 0.001) * max(dot(N, L), 0.001);
-        vec3 specular = numerator / denominator;
-
-        vec3 kS = F;
-        vec3 kD = (1.0 - kS) * (1.0 - metallic);
-        float NdotL = max(dot(N, L), 0.0);
-        Lo += (kD * albedo / PI + specular) * radiance * NdotL;
+    // Optionally flip Y of the reflection direction used for env/cubemap sampling
+    vec3 envR = R;
+    if (FLIP_ENV_MAP_Y != 0) {
+        envR.y = -envR.y;
     }
 
-    // --- IBL ---
-    vec3 irradiance = texture(irradianceMap, N).rgb;
+    // --- F0 & fresnel ---
+    vec3 F0 = mix(vec3(0.04), albedo, metallic);
+    vec3 kS = fresnelSchlick(NdotV, F0);
+    vec3 kD = (vec3(1.0) - kS) * (1.0 - metallic);
+
+    // --- IBL DIFFUSE ---
+    vec3 irradiance = texture(irradianceMap, worldNormal).rgb;
     vec3 diffuseIBL = irradiance * albedo;
 
-    int mipCount = textureQueryLevels(prefilteredMap);
+    // --- IBL SPECULAR (split-sum approximation) ---
+    int mipCount = textureQueryLevels(prefilteredMap); // number of mip levels
     float maxLod = max(0.0, float(mipCount - 1));
     vec3 prefilteredColor = textureLod(prefilteredMap, R, roughness * maxLod).rgb;
-    vec2 brdf = texture(brdfLUT, vec2(max(dot(N, V), 0.0), roughness)).rg;
-    vec3 specularIBL = prefilteredColor * (F0 * brdf.x + brdf.y);
+    vec2 brdf = texture(brdfLUT, vec2(NdotV, roughness)).rg;
+    vec3 specularIBL = prefilteredColor * (kS * brdf.x + brdf.y);
 
-    vec3 ambientIBL = (diffuseIBL + specularIBL) * ao;
+    // --- Compose ---
+    vec3 diffuseTerm = diffuseIBL * kD * ao;
+    vec3 ambientIBL = diffuseTerm + specularIBL;
+    vec3 ambientAdd = ubo.ambientLightColor.rgb * ubo.ambientLightColor.a;
+    vec3 pbrColor = ambientIBL + ambientAdd;
 
-    // --- Compose final (FIXED: do NOT multiply whole color by ambientLightColor) ---
-    // ambientLightColor is additive ambient (if you use it); it should not zero Lo.
-    vec3 ambientAdd = ubo.ambientLightColor.rgb * ubo.ambientLightColor.a; // small additive ambient
-    vec3 color = Lo + ambientIBL + ambientAdd;
-
-    // --- Debug outputs (quick) ---
-    if (DEBUG_OUTPUT == 1) { outFragColor = vec4(linearToSrgb(Lo * EXPOSURE), alpha); return; }
-    if (DEBUG_OUTPUT == 2) { outFragColor = vec4(linearToSrgb(diffuseIBL * EXPOSURE), alpha); return; }
-    if (DEBUG_OUTPUT == 3) { outFragColor = vec4(linearToSrgb(specularIBL * EXPOSURE), alpha); return; }
-    if (DEBUG_OUTPUT == 4) { outFragColor = vec4(linearToSrgb(albedo), alpha); return; }
-
-    // --- tone map & gamma ---
-    color *= EXPOSURE;
-    color = color / (color + vec3(1.0)); // simple Reinhard
+    // tone mapping + gamma (ACES-lite / simple Reinhard)
+    vec3 color = pbrColor / (pbrColor + vec3(1.0));
     color = linearToSrgb(color);
 
+    // Default / final output
     outFragColor = vec4(color, alpha);
 }

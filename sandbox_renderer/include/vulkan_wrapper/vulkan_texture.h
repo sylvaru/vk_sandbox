@@ -2,7 +2,8 @@
 
 
 #include <vulkan/vulkan.h>
-
+#include <cstring>
+#include <cassert>
 #include <string>
 #include <fstream>
 #include <stdlib.h>
@@ -44,6 +45,16 @@ public:
 		VkQueue copyQueue,
 		VkImageUsageFlags imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT,
 		VkImageLayout imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+	void STBLoadCubemapFromFile(
+		const std::string& filename,
+		VkFormat           format,
+		VkSandboxDevice* device,
+		VkQueue            copyQueue,
+		VkImageUsageFlags  imageUsageFlags,
+		VkImageLayout      finalImageLayout,
+		bool               forceLinear
+	);
 
 	void Destroy();
 	void UpdateDescriptor();

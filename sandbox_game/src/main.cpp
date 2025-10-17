@@ -5,12 +5,12 @@
 
 int main()
 {
-    Core::AppSpecification appSpec;
-    appSpec.Name = "A Space In Time";
-    appSpec.windowSpec.Width = 1080;
-    appSpec.windowSpec.Height = 1080;
+    Core::EngineSpecification engineSpec;
+    engineSpec.Name = "A Space In Time";
+    engineSpec.windowSpec.Width = 1920;
+    engineSpec.windowSpec.Height = 1080;
 
-    Core::SandboxEngine engine(appSpec);
+    Core::SandboxEngine engine(engineSpec);
 
     engine.pushLayer<MyGameLayer>();
 

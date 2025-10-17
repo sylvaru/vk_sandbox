@@ -2,6 +2,9 @@
 
 #include "vulkan/vulkan.h"
 #include "vk_tools/vk_init.h"
+#include "vulkan_wrapper/vulkan_device.h"
+
+
 
 #include <math.h>
 #include <stdlib.h>
@@ -84,8 +87,21 @@ inline const std::string getAssetPath()
 #endif
 }
 
+class VkSandboxDevice;
+
 namespace tools
 {
+
+
+
+	void generateMipmaps(
+		VkCommandBuffer cmdBuffer,
+		VkSandboxDevice* device,
+		VkImage image,
+		VkFormat imageFormat,
+		int32_t texWidth,
+		int32_t texHeight,
+		uint32_t mipLevels);
 
 
 	// from: https://stackoverflow.com/a/57595105
@@ -166,4 +182,7 @@ namespace tools
 
 	uint32_t alignedSize(uint32_t value, uint32_t alignment);
 	VkDeviceSize alignedVkSize(VkDeviceSize value, VkDeviceSize alignment);
+
+
+
 }

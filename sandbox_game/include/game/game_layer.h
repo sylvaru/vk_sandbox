@@ -9,10 +9,7 @@
 
 class MyGameLayer : public IGameLayer {
 public:
-
-    //MyGameLayer(std::shared_ptr<IWindowInput> input, AssetManager& assets);
     void onAttach(Core::SandboxEngine* engine) override;
-
     void onInit() override;
     void onUpdate(float dt) override;
 

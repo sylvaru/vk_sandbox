@@ -3,7 +3,6 @@
 
 
 
-
 GltfRenderSystem::GltfRenderSystem(
     VkSandboxDevice& device,
     VkRenderPass renderPass,
@@ -39,14 +38,6 @@ void GltfRenderSystem::init(
         .addBinding(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
         .build();
 
-    m_pbrLayout = VkSandboxDescriptorSetLayout::Builder{ device }
-        .addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // albedo
-        .addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // normal
-        .addBinding(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // metallic
-        .addBinding(3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // roughness
-        .addBinding(4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // ao
-        .build();
-
     createPipelineLayout(globalSetLayout);
     createPipeline(renderPass);
 
@@ -70,56 +61,16 @@ void GltfRenderSystem::init(
             .build(set);
 
         m_iblDescriptorSets[i] = set;
-
-
-    }
-
-    m_pbrDescriptorSets.resize(frameCount);
-    for (uint32_t i = 0; i < frameCount; i++) {
-        VkDescriptorSet set;
-        descriptorPool.allocateDescriptor(m_pbrLayout->getDescriptorSetLayout(), set, /*setIndex=*/0);
-
-        auto logDescriptor = [&](const char* name, const VkDescriptorImageInfo& info) {
-            spdlog::info("{} - sampler: {}, imageView: {}, layout: {}",
-                name,
-                (uint64_t)info.sampler,
-                (uint64_t)info.imageView,
-                (int)info.imageLayout
-            );
-            };
-        
-        VkDescriptorImageInfo albedoInfo = m_assets.getTextureDescriptor("cerberus_albedo");
-        VkDescriptorImageInfo normalInfo = m_assets.getTextureDescriptor("cerberus_normal");
-        VkDescriptorImageInfo metallicInfo = m_assets.getTextureDescriptor("cerberus_metallic");
-        VkDescriptorImageInfo roughnessInfo = m_assets.getTextureDescriptor("cerberus_roughness");
-        VkDescriptorImageInfo aoInfo = m_assets.getTextureDescriptor("cerberus_ao");
-
-        logDescriptor("albedo", albedoInfo);
-        logDescriptor("normal", normalInfo);
-        logDescriptor("metallic", metallicInfo);
-        logDescriptor("roughness", roughnessInfo);
-        logDescriptor("ao", aoInfo);
-
-        VkSandboxDescriptorWriter(*m_pbrLayout, descriptorPool)
-            .writeImage(0, &albedoInfo)
-            .writeImage(1, &normalInfo)
-            .writeImage(2, &metallicInfo)
-            .writeImage(3, &roughnessInfo)
-            .writeImage(4, &aoInfo)
-            .build(set);
-
-        m_pbrDescriptorSets[i] = set;
     }
 }
 
 void GltfRenderSystem::createPipelineLayout(VkDescriptorSetLayout globalSetLayout) {
     const std::vector<VkDescriptorSetLayout> layouts = {
-        globalSetLayout,
-        vkglTF::descriptorSetLayoutUbo,
-        m_pbrLayout->getDescriptorSetLayout(),
-        m_iblLayout->getDescriptorSetLayout()
+       globalSetLayout,                         // set 0: global UBO
+       vkglTF::descriptorSetLayoutUbo,          // set 1: per-node UBO
+       vkglTF::descriptorSetLayoutImage,        // set 2: material image samplers (albedo/normal/metal/rough/ao)
+       m_iblLayout->getDescriptorSetLayout()    // set 3: IBL (brdf/irradiance/prefilter)
     };
-
 
     VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -169,11 +120,18 @@ void GltfRenderSystem::createPipeline(VkRenderPass renderPass) {
     maskConfig.attributeDescriptions = attributes;
     maskConfig.colorBlendAttachment.blendEnable = VK_FALSE;
 
-    struct SpecData { VkBool32 alphaMask; float cutoff; };
-    static SpecData specData{ VK_TRUE, 0.5f };
-    static VkSpecializationMapEntry mapEntries[2] = {
+    struct SpecData { 
+        VkBool32 alphaMask; 
+        float cutoff;
+        int flipMaterialUV;
+        int flipEnvMapY;
+    };
+    static SpecData specData{ VK_TRUE, 0.5f, 1 };
+    static VkSpecializationMapEntry mapEntries[4] = {
         { 0, offsetof(SpecData, alphaMask), sizeof(VkBool32) },
-        { 1, offsetof(SpecData, cutoff),    sizeof(float) }
+        { 1, offsetof(SpecData, cutoff),    sizeof(float) },
+        { 7, offsetof(SpecData, flipMaterialUV), sizeof(int)},
+        { 8, offsetof(SpecData, flipEnvMapY),  sizeof(int) }
     };
     static VkSpecializationInfo specInfo{};
     specInfo.mapEntryCount = 2;
@@ -239,7 +197,7 @@ void GltfRenderSystem::render(FrameInfo& frame) {
 
             for (auto* primitive : node->mesh->primitives) {
                 // --- Bind sets 0 & 1 (global + node UBO) ---
-                std::array<VkDescriptorSet, 2> sets01 = {
+                std::array<VkDescriptorSet, 2> sets = {
                     frame.globalDescriptorSet,                 // set 0
                     node->mesh->uniformBuffer.descriptorSet    // set 1
                 };
@@ -248,26 +206,12 @@ void GltfRenderSystem::render(FrameInfo& frame) {
                     VK_PIPELINE_BIND_POINT_GRAPHICS,
                     m_pipelineLayout,
                     0,
-                    static_cast<uint32_t>(sets01.size()),
-                    sets01.data(),
+                    static_cast<uint32_t>(sets.size()),
+                    sets.data(),
                     0, nullptr
                 );
 
-                // --- Bind our PBR set (set = 2) ---
-                VkDescriptorSet pbrSet = m_pbrDescriptorSets[frame.frameIndex];
-                if (pbrSet == VK_NULL_HANDLE) {
-                    if (!warnedThisFrame) { /*spdlog::warn("PBR set null");*/ warnedThisFrame = true; }
-                    continue;
-                }
-                vkCmdBindDescriptorSets(
-                    frame.commandBuffer,
-                    VK_PIPELINE_BIND_POINT_GRAPHICS,
-                    m_pipelineLayout,
-                    2, 1, &pbrSet,
-                    0, nullptr
-                );
-
-                // --- Bind IBL set (set = 3) ---
+                // --- Bind IBL set ---
                 VkDescriptorSet iblSet = m_iblDescriptorSets[frame.frameIndex];
                 if (iblSet == VK_NULL_HANDLE) { continue; }
                 vkCmdBindDescriptorSets(
@@ -286,7 +230,7 @@ void GltfRenderSystem::render(FrameInfo& frame) {
                 default:                                  m_blendPipeline->bind(frame.commandBuffer);  break;
                 }
 
-                model->gltfDraw(frame.commandBuffer, vkglTF::RenderFlags::RenderNone, m_pipelineLayout, 2);
+                model->gltfDraw(frame.commandBuffer, vkglTF::RenderFlags::BindImages, m_pipelineLayout, 2);
                 warnedThisFrame = false;
             }
         }

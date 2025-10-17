@@ -447,7 +447,8 @@ void vkglTF::Texture::fromglTfImage(tinygltf::Image& gltfimage, std::string path
 
 /*
 	glTF material
-*/void vkglTF::Material::createDescriptorSet(
+*/
+void vkglTF::Material::createDescriptorSet(
 	VkDescriptorPool descriptorPool,
 	VkDescriptorSetLayout descriptorSetLayout,
 	uint32_t descriptorBindingFlags,
@@ -943,6 +944,7 @@ void   vkglTF::Model::loadNode( Node* parent, const tinygltf::Node& node, uint32
 					vert.joint0 = hasSkin ? glm::vec4(glm::make_vec4(&bufferJoints[v * 4])) : glm::vec4(0.0f);
 					vert.weight0 = hasSkin ? glm::make_vec4(&bufferWeights[v * 4]) : glm::vec4(0.0f);
 					vertexBuffer.push_back(vert);
+
 				}
 			}
 			// Indices
@@ -1110,6 +1112,64 @@ void vkglTF::Model::loadMaterials(tinygltf::Model& gltfModel)
 }
 
 
+static void generateTangents(std::vector<vkglTF::Vertex>& vertices, const std::vector<uint32_t>& indices)
+{
+	if (indices.empty() || vertices.empty()) return;
+
+	std::vector<glm::vec3> tan1(vertices.size(), glm::vec3(0.0f));
+	std::vector<glm::vec3> tan2(vertices.size(), glm::vec3(0.0f));
+
+	const size_t triCount = indices.size() / 3;
+	for (size_t i = 0; i < triCount; ++i) {
+		uint32_t i0 = indices[i * 3 + 0];
+		uint32_t i1 = indices[i * 3 + 1];
+		uint32_t i2 = indices[i * 3 + 2];
+
+		const glm::vec3& v0 = glm::vec3(vertices[i0].pos); // ensure pos -> vec3
+		const glm::vec3& v1 = glm::vec3(vertices[i1].pos);
+		const glm::vec3& v2 = glm::vec3(vertices[i2].pos);
+
+		const glm::vec2& w0 = vertices[i0].uv;
+		const glm::vec2& w1 = vertices[i1].uv;
+		const glm::vec2& w2 = vertices[i2].uv;
+
+		glm::vec3 edge1 = v1 - v0;
+		glm::vec3 edge2 = v2 - v0;
+
+		glm::vec2 deltaUV1 = w1 - w0;
+		glm::vec2 deltaUV2 = w2 - w0;
+
+		float denom = deltaUV1.x * deltaUV2.y - deltaUV2.x * deltaUV1.y;
+		float r = denom == 0.0f ? 0.0f : 1.0f / denom;
+
+		glm::vec3 tangent = (edge1 * deltaUV2.y - edge2 * deltaUV1.y) * r;
+		glm::vec3 bitangent = (edge2 * deltaUV1.x - edge1 * deltaUV2.x) * r;
+
+		tan1[i0] += tangent;
+		tan1[i1] += tangent;
+		tan1[i2] += tangent;
+
+		tan2[i0] += bitangent;
+		tan2[i1] += bitangent;
+		tan2[i2] += bitangent;
+	}
+
+	// Orthonormalize and store into vertex.tangent (w = handedness)
+	for (size_t a = 0; a < vertices.size(); ++a) {
+		glm::vec3 n = glm::normalize(vertices[a].normal);
+		glm::vec3 t = tan1[a];
+
+		// Gram-Schmidt orthogonalize
+		t = glm::normalize(t - n * glm::dot(n, t));
+
+		// Calculate handedness
+		glm::vec3 b = tan2[a];
+		float handedness = (glm::dot(glm::cross(n, t), b) < 0.0f) ? -1.0f : 1.0f;
+
+		vertices[a].tangent = glm::vec4(t, handedness);
+	}
+}
+
 
 
 
@@ -1141,7 +1201,27 @@ void  vkglTF::Model::loadFromFile(std::string filename, VkSandboxDevice* device,
 	// We let tinygltf handle this, by passing the asset manager of our app
 	tinygltf::asset_manager = androidApp->activity->assetManager;
 #endif
-	bool fileLoaded = gltfContext.LoadASCIIFromFile(&gltfModel, &error, &warning, filename);
+	// Decide whether to load ASCII (.gltf) or binary (.glb)
+	auto getFileExtension = [](const std::string& fn) {
+		size_t dot = fn.find_last_of('.');
+		if (dot == std::string::npos) return std::string();
+		std::string ext = fn.substr(dot + 1);
+		// lower-case it
+		std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char c) { return std::tolower(c); });
+		return ext;
+		};
+
+	std::string ext = getFileExtension(filename);
+	bool fileLoaded = false;
+
+	if (ext == "glb") {
+		// Binary glTF
+		fileLoaded = gltfContext.LoadBinaryFromFile(&gltfModel, &error, &warning, filename);
+	}
+	else if (ext == "gltf") {
+		// ASCII / JSON glTF
+		fileLoaded = gltfContext.LoadASCIIFromFile(&gltfModel, &error, &warning, filename);
+	}
 
 	std::vector<uint32_t> indexBuffer;
 	std::vector<Vertex> vertexBuffer;
@@ -1149,8 +1229,9 @@ void  vkglTF::Model::loadFromFile(std::string filename, VkSandboxDevice* device,
 	if (fileLoaded) {
 		if (!(fileLoadingFlags & FileLoadingFlags::DontLoadImages)) {
 			loadImages(gltfModel, device, transferQueue);
+			loadMaterials(gltfModel);
 		}
-		loadMaterials(gltfModel);
+		
 		const tinygltf::Scene& scene = gltfModel.scenes[gltfModel.defaultScene > -1 ? gltfModel.defaultScene : 0];
 		for (size_t i = 0; i < scene.nodes.size(); i++) {
 			const tinygltf::Node node = gltfModel.nodes[scene.nodes[i]];
@@ -1214,6 +1295,8 @@ void  vkglTF::Model::loadFromFile(std::string filename, VkSandboxDevice* device,
 			m_bMetallicRoughnessWorkflow = false;
 		}
 	}
+
+	generateTangents(vertexBuffer, indexBuffer);
 
 	size_t vertexBufferSize = vertexBuffer.size() * sizeof(Vertex);
 	size_t indexBufferSize = indexBuffer.size() * sizeof(uint32_t);
@@ -1403,8 +1486,6 @@ void  vkglTF::Model::loadFromFile(std::string filename, VkSandboxDevice* device,
 		}
 	}
 }
-
-
 
 void  vkglTF::Model::drawNode(Node* node, VkCommandBuffer commandBuffer, uint32_t renderFlags, VkPipelineLayout pipelineLayout, uint32_t bindImageSet)
 {

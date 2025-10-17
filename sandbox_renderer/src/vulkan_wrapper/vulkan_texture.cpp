@@ -4,7 +4,7 @@
 
 #include <stb_image.h>
 #include <stdexcept>
-#include <cstring>
+
 
 
 
@@ -353,6 +353,189 @@ bool VkSandboxTexture::KTXLoadFromFile(
 
 	return true;
 }
+void VkSandboxTexture::STBLoadCubemapFromFile(
+	const std::string& filename,
+	VkFormat format,
+	VkSandboxDevice* device,
+	VkQueue copyQueue,
+	VkImageUsageFlags imageUsageFlags,
+	VkImageLayout finalImageLayout,
+	bool forceLinear)
+{
+	int texWidth = 0, texHeight = 0, texChannels = 0;
+	bool isHDR = false;
+	bool isCubemapFaces = true;
+
+	std::vector<stbi_uc*> faces;
+	std::vector<std::string> faceSuffixes = {
+		"_px", "_nx", "_py", "_ny", "_pz", "_nz"
+	};
+
+	std::string baseName = filename.substr(0, filename.find_last_of('.'));
+	std::string ext = filename.substr(filename.find_last_of('.'));
+
+	// --- Try to load six cubemap faces ---
+	for (const auto& s : faceSuffixes) {
+		std::string faceFile = baseName + s + ext;
+		int w, h, c;
+		stbi_uc* data = nullptr;
+
+		if (stbi_is_hdr(faceFile.c_str())) {
+			isHDR = true;
+			data = reinterpret_cast<stbi_uc*>(stbi_loadf(faceFile.c_str(), &w, &h, &c, STBI_rgb_alpha));
+		}
+		else {
+			data = stbi_load(faceFile.c_str(), &w, &h, &c, STBI_rgb_alpha);
+		}
+
+		if (!data) {
+			isCubemapFaces = false;
+			break;
+		}
+
+		if (texWidth == 0) {
+			texWidth = w;
+			texHeight = h;
+		}
+
+		faces.push_back(data);
+	}
+
+	// --- Fallback: single equirectangular image (.jpg / .hdr) ---
+	if (!isCubemapFaces) {
+		for (auto* f : faces)
+			stbi_image_free(f);
+		faces.clear();
+
+		if (stbi_is_hdr(filename.c_str())) {
+			isHDR = true;
+			float* data = stbi_loadf(filename.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+			if (!data)
+				throw std::runtime_error("Failed to load HDR image: " + filename);
+			faces.push_back(reinterpret_cast<stbi_uc*>(data));
+		}
+		else {
+			stbi_uc* data = stbi_load(filename.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+			if (!data)
+				throw std::runtime_error("Failed to load image: " + filename);
+			faces.push_back(data);
+		}
+	}
+
+	const uint32_t numFaces = isCubemapFaces ? 6 : 1;
+	const VkDeviceSize pixelSize = 4; // RGBA8
+	const VkDeviceSize imageSize = texWidth * texHeight * pixelSize * numFaces;
+
+	// --- Create staging buffer ---
+	VkBuffer stagingBuffer;
+	VkDeviceMemory stagingMemory;
+	void* mappedData;
+
+	device->createBuffer(
+		VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+		imageSize,
+		&stagingBuffer,
+		&stagingMemory);
+
+	vkMapMemory(device->m_logicalDevice, stagingMemory, 0, imageSize, 0, &mappedData);
+
+	size_t offset = 0;
+	for (auto* f : faces) {
+		size_t faceSize = texWidth * texHeight * pixelSize;
+		memcpy((char*)mappedData + offset, f, faceSize);
+		offset += faceSize;
+		stbi_image_free(f);
+	}
+
+	vkUnmapMemory(device->m_logicalDevice, stagingMemory);
+
+	// --- Create VkImage ---
+	m_width = texWidth;
+	m_height = texHeight;
+	m_mipLevels = static_cast<uint32_t>(floor(log2(std::max(texWidth, texHeight)))) + 1;
+
+	VkImageCreateInfo imageCI = {};
+	imageCI.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+	imageCI.imageType = VK_IMAGE_TYPE_2D;
+	imageCI.format = format;
+	imageCI.extent = { (uint32_t)texWidth, (uint32_t)texHeight, 1 };
+	imageCI.mipLevels = m_mipLevels;
+	imageCI.arrayLayers = numFaces;
+	imageCI.samples = VK_SAMPLE_COUNT_1_BIT;
+	imageCI.tiling = VK_IMAGE_TILING_OPTIMAL;
+	imageCI.usage = imageUsageFlags | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+	imageCI.flags = isCubemapFaces ? VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT : 0;
+
+	VK_CHECK_RESULT(vkCreateImage(device->m_logicalDevice, &imageCI, nullptr, &m_image));
+
+	VkMemoryRequirements memReqs;
+	vkGetImageMemoryRequirements(device->m_logicalDevice, m_image, &memReqs);
+
+	VkMemoryAllocateInfo memAllocInfo = {};
+	memAllocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+	memAllocInfo.allocationSize = memReqs.size;
+	memAllocInfo.memoryTypeIndex = device->getMemoryType(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+	VK_CHECK_RESULT(vkAllocateMemory(device->m_logicalDevice, &memAllocInfo, nullptr, &m_deviceMemory));
+	VK_CHECK_RESULT(vkBindImageMemory(device->m_logicalDevice, m_image, m_deviceMemory, 0));
+
+	// --- Copy buffer to image ---
+	VkCommandBuffer cmd = device->createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);
+
+	VkImageSubresourceRange subresourceRange{};
+	subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	subresourceRange.levelCount = m_mipLevels;
+	subresourceRange.layerCount = numFaces;
+
+	tools::setImageLayout(
+		cmd,
+		m_image,
+		VK_IMAGE_LAYOUT_UNDEFINED,
+		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+		subresourceRange);
+
+	std::vector<VkBufferImageCopy> bufferCopyRegions(numFaces);
+	VkDeviceSize bufferOffset = 0;
+
+	for (uint32_t face = 0; face < numFaces; ++face) {
+		VkBufferImageCopy region{};
+		region.bufferOffset = bufferOffset;
+		region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		region.imageSubresource.mipLevel = 0;
+		region.imageSubresource.baseArrayLayer = face;
+		region.imageSubresource.layerCount = 1;
+		region.imageExtent = { (uint32_t)texWidth, (uint32_t)texHeight, 1 };
+		bufferCopyRegions[face] = region;
+		bufferOffset += texWidth * texHeight * pixelSize;
+	}
+
+	vkCmdCopyBufferToImage(
+		cmd,
+		stagingBuffer,
+		m_image,
+		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+		static_cast<uint32_t>(bufferCopyRegions.size()),
+		bufferCopyRegions.data());
+
+	// --- Generate mipmaps ---
+	tools::generateMipmaps(cmd, device, m_image, format, texWidth, texHeight, m_mipLevels);
+
+	// --- Final layout ---
+	tools::setImageLayout(
+		cmd,
+		m_image,
+		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+		finalImageLayout,
+		subresourceRange);
+
+	device->flushCommandBuffer(cmd, copyQueue, true);
+
+	vkDestroyBuffer(device->m_logicalDevice, stagingBuffer, nullptr);
+	vkFreeMemory(device->m_logicalDevice, stagingMemory, nullptr);
+}
+
+
+
 // Loads a cubemap from a single KTX file
 void VkSandboxTexture::KtxLoadCubemapFromFile(const std::string& name, std::string filename, VkFormat format, VkSandboxDevice* device, VkQueue copyQueue, VkImageUsageFlags imageUsageFlags, VkImageLayout imageLayout)
 {

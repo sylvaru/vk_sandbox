@@ -38,12 +38,12 @@
       "renderSystem": "obj"
     },
     {
-      "name": "cerberus",
-      "model": "cerberus",
+      "name": "Helmet",
+      "model": "Damaged_Helmet",
       "renderSystem": "gltf",
-      "position": [ 10.0, 2.0, 0.0 ],
-      "rotation": [ 0.0, 5.0, 0.0 ],
-      "scale": [ 2.0, 2.0, 2.0 ]
+      "position": [ 10.0, 3.0, 0.0 ],
+      "rotation": [ 0.0, -5.0, 0.0 ],
+      "scale": [ 1.0, 1.0, 1.0 ]
     },
     {
       "name": "main_scene",

@@ -185,7 +185,7 @@ namespace Core {
             PROJECT_ROOT_DIR + std::string("/res/models/gltf/cube.gltf"),
             &m_device,
             m_transferQueue,
-            vkglTF::FileLoadingFlags::PreTransformVertices | vkglTF::FileLoadingFlags::FlipY
+            vkglTF::FileLoadingFlags::PreTransformVertices | vkglTF::FileLoadingFlags::FlipY | vkglTF::FileLoadingFlags::DontLoadImages
         );
         generateBRDFlut();
 
@@ -314,34 +314,75 @@ namespace Core {
 
     std::shared_ptr<VkSandboxTexture> AssetManager::loadCubemap(
         const std::string& name,
-        const std::string& ktxFilename,
+        const std::string& filename,
         VkFormat format,
         VkImageUsageFlags usageFlags,
         VkImageLayout initialLayout)
     {
+        // Return cached texture if already loaded
         if (auto it = m_textures.find(name); it != m_textures.end())
             return it->second;
 
         auto tex = std::make_shared<VkSandboxTexture>();
         tex->m_pDevice = &m_device;
-        try {
-            tex->KtxLoadCubemapFromFile(
-                name,
-                ktxFilename,
-                format,
-                &m_device,
-                m_device.graphicsQueue(),
-                usageFlags,
-                initialLayout
-            );
+
+        try
+        {
+            // --- Try loading as KTX first ---
+            if (filename.ends_with(".ktx") || filename.ends_with(".ktx2"))
+            {
+                tex->KtxLoadCubemapFromFile(
+                    name,                 // ✅ added name
+                    filename,             // ✅ file path
+                    format,
+                    &m_device,
+                    m_transferQueue,
+                    usageFlags,
+                    initialLayout
+                );
+            }
+            else
+            {
+                // If not .ktx, directly try STB
+                tex->STBLoadCubemapFromFile(
+                    filename,
+                    format,
+                    &m_device,
+                    m_transferQueue,
+                    usageFlags,
+                    initialLayout,
+                    false // forceLinear
+                );
+            }
         }
-        catch (const std::exception& e) {
-            throw std::runtime_error("Failed to load HDR cubemap '" + name + "': " + e.what());
+        catch (const std::exception& e)
+        {
+            // --- Fallback: Try STB if KTX failed ---
+            try
+            {
+                tex->STBLoadCubemapFromFile(
+                    filename,
+                    format,
+                    &m_device,
+                    m_transferQueue,
+                    usageFlags,
+                    initialLayout,
+                    false // forceLinear
+                );
+            }
+            catch (const std::exception& e2)
+            {
+                throw std::runtime_error(
+                    "Failed to load cubemap '" + name +
+                    "'\nKTX error: " + e.what() +
+                    "\nSTB fallback error: " + e2.what());
+            }
         }
 
         registerTextureIfNeeded(name, tex, m_textures, m_textureIndexMap, m_textureList);
         return tex;
     }
+
 
 
 
@@ -669,8 +710,20 @@ namespace Core {
 
                 vkCmdBeginRenderPass(cmdBuf, &rpBI, VK_SUBPASS_CONTENTS_INLINE);
 
-                vkCmdSetViewport(cmdBuf, 0, 1, &viewport);
-                vkCmdSetScissor(cmdBuf, 0, 1, &scissor);
+                VkViewport vp = vkinit::viewport((float)mipDim, (float)mipDim, 0.0f, 1.0f);
+                VkRect2D sc = vkinit::rect2D(mipDim, mipDim, 0, 0);
+
+                // If you want to flip Y for cubemap face rendering:
+                bool flipY = false; // set true to flip the offscreen render vertically
+                if (flipY) {
+                    // Negative height flips Y; set y origin to height to keep image in-view
+                    vp.height = -vp.height;
+                    vp.y = (float)mipDim;
+                }
+
+                // Set viewport & scissor
+                vkCmdSetViewport(cmdBuf, 0, 1, &vp);
+                vkCmdSetScissor(cmdBuf, 0, 1, &sc);
 
                 // push constants (projection * view)
                 pushBlock.mvp = glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, 512.0f) * matrices[f];

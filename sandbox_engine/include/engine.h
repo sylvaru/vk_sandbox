@@ -13,7 +13,7 @@
 
 namespace Core {
 
-    struct AppSpecification {
+    struct EngineSpecification {
         std::string Name = "";
 
         struct WindowSpecification {
@@ -24,7 +24,7 @@ namespace Core {
     class SandboxEngine {
     public:
        
-        explicit SandboxEngine(const AppSpecification& appSpec = AppSpecification());
+        explicit SandboxEngine(const EngineSpecification& appSpec = EngineSpecification());
         ~SandboxEngine();
 
         void initialize();
@@ -42,7 +42,7 @@ namespace Core {
 
         void runApp();
     private:
-        AppSpecification              m_appSpec;
+        EngineSpecification           m_engineSpec;
         SandboxWindow                 m_window;
         VkSandboxInstance             m_vkinstance;
         VkSandboxDevice               m_device;
