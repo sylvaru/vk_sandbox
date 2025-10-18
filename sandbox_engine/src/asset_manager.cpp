@@ -5,7 +5,7 @@
 #include <fstream>
 #include <spdlog/spdlog.h>
 #include <glm/glm.hpp>
-
+#include <stb_image.h>
 
 
 #include "common_tools.h"
@@ -16,13 +16,12 @@ using json = nlohmann::json;
 
 namespace Core {
 
-    AssetManager::AssetManager(VkSandboxDevice& device) : m_device(device), m_transferQueue(m_device.graphicsQueue()) {
-
+    AssetManager::AssetManager(VkSandboxDevice& device) : m_device(device), m_transferQueue(m_device.graphicsQueue()) 
+    {
     }
 
     AssetManager::~AssetManager()
     {
-
     }
 
     void AssetManager::preloadGlobalAssets() {
@@ -127,14 +126,24 @@ namespace Core {
             const std::string name = entry["name"];
             const std::string path = std::string(PROJECT_ROOT_DIR) + "/res/textures/" + entry["path"].get<std::string>();
 
-            std::string fmtStr = entry.value("format", "VK_FORMAT_R32G32B32A32_SFLOAT");
-            VkFormat format = VK_FORMAT_R32G32B32A32_SFLOAT;
-            if (fmtStr == "VK_FORMAT_R16G16B16A16_SFLOAT") format = VK_FORMAT_R16G16B16A16_SFLOAT;
-            else if (fmtStr == "VK_FORMAT_R32G32B32A32_SFLOAT") format = VK_FORMAT_R32G32B32A32_SFLOAT;
+            std::string fmtStr = entry.value("format", "AUTO"); // default to auto-detect
 
+            VkFormat format = VK_FORMAT_R8G8B8A8_UNORM; // sensible default for JPG/PNG
+            bool isHDR = false;
+
+            // detect format based on file type before load
+            if (stbi_is_hdr(path.c_str())) {
+                isHDR = true;
+                format = VK_FORMAT_R32G32B32A32_SFLOAT; // float32 HDR
+            }
+            else if (fmtStr == "VK_FORMAT_R16G16B16A16_SFLOAT") {
+                format = VK_FORMAT_R16G16B16A16_SFLOAT;
+            }
+            else if (fmtStr == "VK_FORMAT_R32G32B32A32_SFLOAT") {
+                format = VK_FORMAT_R32G32B32A32_SFLOAT;
+            }
 
             try {
-
                 auto cubemap = loadCubemap(
                     name,
                     path,
@@ -205,6 +214,11 @@ namespace Core {
 
         spdlog::info("Assets loaded");
     }
+
+    
+
+
+
 
     std::shared_ptr<VkSandboxTexture> AssetManager::loadTexture(
         const std::string& name,
@@ -306,7 +320,7 @@ namespace Core {
             return it->second;
 
         auto model = std::make_shared<vkglTF::Model>();
-        model->loadFromFile(filepath, &m_device, m_device.graphicsQueue(), gltfFlags, scale);
+        model->loadFromFile(filepath, &m_device, m_transferQueue, gltfFlags, scale);
 
         m_gltfModelCache[name] = model;
         return model;
@@ -332,8 +346,8 @@ namespace Core {
             if (filename.ends_with(".ktx") || filename.ends_with(".ktx2"))
             {
                 tex->KtxLoadCubemapFromFile(
-                    name,                 // ✅ added name
-                    filename,             // ✅ file path
+                    name,
+                    filename,
                     format,
                     &m_device,
                     m_transferQueue,
@@ -351,7 +365,8 @@ namespace Core {
                     m_transferQueue,
                     usageFlags,
                     initialLayout,
-                    false // forceLinear
+                    false, // forceLinear
+                    m_skyboxModel.get()
                 );
             }
         }
@@ -645,7 +660,7 @@ namespace Core {
 
         // shader paths (match your project layout)
         std::string vert = std::string(PROJECT_ROOT_DIR) + "/res/shaders/spirV/filtered_cube.vert.spv";
-        std::string frag = std::string(PROJECT_ROOT_DIR) + "/res/shaders/spirV/prefiltered_env_map.spv";
+        std::string frag = std::string(PROJECT_ROOT_DIR) + "/res/shaders/spirV/prefiltered_env_map.frag.spv";
 
         if (frag.empty()) {
             // cleanup minimal resources

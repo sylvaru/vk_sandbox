@@ -30,7 +30,8 @@ uint32_t vkglTF::descriptorBindingFlags = vkglTF::DescriptorBindingFlags::ImageB
 vkglTF::DescriptorBindingFlags::ImageNormalMap |
 vkglTF::DescriptorBindingFlags::ImageMetallicMap |
 vkglTF::DescriptorBindingFlags::ImageRoughnessMap |
-vkglTF::DescriptorBindingFlags::ImageAOMap;
+vkglTF::DescriptorBindingFlags::ImageAOMap |
+vkglTF::DescriptorBindingFlags::ImageEmissiveMap;
 
 ////class VkSandboxDevice;
 //
@@ -484,7 +485,10 @@ void vkglTF::Material::createDescriptorSet(
 	VkDescriptorImageInfo occlusionImageInfo = (occlusionTexture && (descriptorBindingFlags & DescriptorBindingFlags::ImageAOMap))
 		? occlusionTexture->descriptor : fallbackTexture->descriptor;
 
-	std::array<VkWriteDescriptorSet, 5> writeDescriptorSets{};
+	VkDescriptorImageInfo emissiveImageInfo = (emissiveTexture && (descriptorBindingFlags & DescriptorBindingFlags::ImageEmissiveMap))
+		? emissiveTexture->descriptor : fallbackTexture->descriptor;
+
+	std::array<VkWriteDescriptorSet, 6> writeDescriptorSets{};
 
 	writeDescriptorSets[0] = {
 		VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, nullptr, descriptorSet, 0, 0, 1,
@@ -507,6 +511,10 @@ void vkglTF::Material::createDescriptorSet(
 	writeDescriptorSets[4] = {
 		VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, nullptr, descriptorSet, 4, 0, 1,
 		VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &occlusionImageInfo, nullptr, nullptr
+	};
+	writeDescriptorSets[5] = {
+		VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, nullptr, descriptorSet, 5, 0, 1,
+		VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &emissiveImageInfo, nullptr, nullptr
 	};
 
 	vkUpdateDescriptorSets(device->m_logicalDevice, static_cast<uint32_t>(writeDescriptorSets.size()), writeDescriptorSets.data(), 0, nullptr);
@@ -1231,7 +1239,7 @@ void  vkglTF::Model::loadFromFile(std::string filename, VkSandboxDevice* device,
 			loadImages(gltfModel, device, transferQueue);
 			loadMaterials(gltfModel);
 		}
-		
+	
 		const tinygltf::Scene& scene = gltfModel.scenes[gltfModel.defaultScene > -1 ? gltfModel.defaultScene : 0];
 		for (size_t i = 0; i < scene.nodes.size(); i++) {
 			const tinygltf::Node node = gltfModel.nodes[scene.nodes[i]];
@@ -1381,7 +1389,7 @@ void  vkglTF::Model::loadFromFile(std::string filename, VkSandboxDevice* device,
 	}
 	uint32_t materialCount = 0;
 	for (auto& m : m_materials) {
-		if (m.baseColorTexture || m.normalTexture || m.metallicRoughnessTexture || m.occlusionTexture)
+		if (m.baseColorTexture || m.normalTexture || m.metallicRoughnessTexture || m.occlusionTexture || m.emissiveTexture)
 		++materialCount;
 	}
 	if (materialCount == 0 && !m_materials.empty()) {
@@ -1394,7 +1402,7 @@ void  vkglTF::Model::loadFromFile(std::string filename, VkSandboxDevice* device,
 		poolSizes.push_back({ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, uboCount });
 	}
 
-	uint32_t samplerCount = materialCount * 5;  // baseColor + normal per material
+	uint32_t samplerCount = materialCount * 6;  // baseColor + normal per material
 	if (samplerCount > 0) {
 		poolSizes.push_back({ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, samplerCount });
 	}
@@ -1432,7 +1440,7 @@ void  vkglTF::Model::loadFromFile(std::string filename, VkSandboxDevice* device,
 				// Always push exactly two bindings:
 				//  • binding 0 = base-color sampler
 				//  • binding 1 = normal-map sampler
-				std::array<VkDescriptorSetLayoutBinding, 5> setLayoutBindings = {
+				std::array<VkDescriptorSetLayoutBinding, 6> setLayoutBindings = {
 					// binding 0 → baseColor (albedo)
 					vkinit::descriptorSetLayoutBinding(
 						VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
@@ -1462,6 +1470,11 @@ void  vkglTF::Model::loadFromFile(std::string filename, VkSandboxDevice* device,
 							VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
 							VK_SHADER_STAGE_FRAGMENT_BIT,
 							/*binding=*/ 4
+						),
+						vkinit::descriptorSetLayoutBinding(
+							VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+							VK_SHADER_STAGE_FRAGMENT_BIT,
+							/*binding=*/ 5
 						)
 				};
 
@@ -1479,7 +1492,7 @@ void  vkglTF::Model::loadFromFile(std::string filename, VkSandboxDevice* device,
 			}
 
 			for (auto& material : m_materials) {
-				if (material.baseColorTexture || material.normalTexture || material.metallicRoughnessTexture || material.occlusionTexture) {
+				if (material.baseColorTexture || material.normalTexture || material.metallicRoughnessTexture || material.occlusionTexture || material.emissiveTexture) {
 					material.createDescriptorSet(m_descriptorPool, descriptorSetLayoutImage, descriptorBindingFlags, &emptyTexture);
 				}
 			}

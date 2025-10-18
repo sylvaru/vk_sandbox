@@ -1,7 +1,8 @@
 #include "vulkan_wrapper/vulkan_texture.h"
 #include "vulkan_wrapper/vulkan_device.h"
+#include "vulkan_wrapper/vulkan_pipeline.h"
 
-
+#include <spdlog/spdlog.h>
 #include <stb_image.h>
 #include <stdexcept>
 
@@ -360,77 +361,43 @@ void VkSandboxTexture::STBLoadCubemapFromFile(
 	VkQueue copyQueue,
 	VkImageUsageFlags imageUsageFlags,
 	VkImageLayout finalImageLayout,
-	bool forceLinear)
+	bool forceLinear,
+	vkglTF::Model* skyboxModel)
 {
+	m_bIsCubemap = true;
+	m_pDevice = device;
+
 	int texWidth = 0, texHeight = 0, texChannels = 0;
-	bool isHDR = false;
-	bool isCubemapFaces = true;
+	bool isHDR = stbi_is_hdr(filename.c_str());
 
-	std::vector<stbi_uc*> faces;
-	std::vector<std::string> faceSuffixes = {
-		"_px", "_nx", "_py", "_ny", "_pz", "_nz"
-	};
+	void* pixels = nullptr;
 
-	std::string baseName = filename.substr(0, filename.find_last_of('.'));
-	std::string ext = filename.substr(filename.find_last_of('.'));
-
-	// --- Try to load six cubemap faces ---
-	for (const auto& s : faceSuffixes) {
-		std::string faceFile = baseName + s + ext;
-		int w, h, c;
-		stbi_uc* data = nullptr;
-
-		if (stbi_is_hdr(faceFile.c_str())) {
-			isHDR = true;
-			data = reinterpret_cast<stbi_uc*>(stbi_loadf(faceFile.c_str(), &w, &h, &c, STBI_rgb_alpha));
-		}
-		else {
-			data = stbi_load(faceFile.c_str(), &w, &h, &c, STBI_rgb_alpha);
-		}
-
-		if (!data) {
-			isCubemapFaces = false;
-			break;
-		}
-
-		if (texWidth == 0) {
-			texWidth = w;
-			texHeight = h;
-		}
-
-		faces.push_back(data);
+	if (isHDR) {
+		float* data = stbi_loadf(filename.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+		if (!data) throw std::runtime_error("Failed to load HDR image: " + filename);
+		pixels = data;
+		texChannels = 4;
+		format = VK_FORMAT_R32G32B32A32_SFLOAT;
+	}
+	else {
+		stbi_uc* data = stbi_load(filename.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+		if (!data) throw std::runtime_error("Failed to load LDR image: " + filename);
+		pixels = data;
+		texChannels = 4;
+		format = VK_FORMAT_R8G8B8A8_UNORM;
 	}
 
-	// --- Fallback: single equirectangular image (.jpg / .hdr) ---
-	if (!isCubemapFaces) {
-		for (auto* f : faces)
-			stbi_image_free(f);
-		faces.clear();
+	m_width = texWidth;
+	m_height = texHeight;
+	m_mipLevels = static_cast<uint32_t>(floor(log2(std::max(texWidth, texHeight)))) + 1;
 
-		if (stbi_is_hdr(filename.c_str())) {
-			isHDR = true;
-			float* data = stbi_loadf(filename.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
-			if (!data)
-				throw std::runtime_error("Failed to load HDR image: " + filename);
-			faces.push_back(reinterpret_cast<stbi_uc*>(data));
-		}
-		else {
-			stbi_uc* data = stbi_load(filename.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
-			if (!data)
-				throw std::runtime_error("Failed to load image: " + filename);
-			faces.push_back(data);
-		}
-	}
+	VkDeviceSize componentSize = isHDR ? sizeof(float) : sizeof(stbi_uc);
+	VkDeviceSize bytesPerPixel = texChannels * componentSize;
+	VkDeviceSize imageSize = texWidth * texHeight * bytesPerPixel;
 
-	const uint32_t numFaces = isCubemapFaces ? 6 : 1;
-	const VkDeviceSize pixelSize = 4; // RGBA8
-	const VkDeviceSize imageSize = texWidth * texHeight * pixelSize * numFaces;
-
-	// --- Create staging buffer ---
+	// Create staging buffer for the full equirectangular texture
 	VkBuffer stagingBuffer;
 	VkDeviceMemory stagingMemory;
-	void* mappedData;
-
 	device->createBuffer(
 		VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
 		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
@@ -438,101 +405,489 @@ void VkSandboxTexture::STBLoadCubemapFromFile(
 		&stagingBuffer,
 		&stagingMemory);
 
-	vkMapMemory(device->m_logicalDevice, stagingMemory, 0, imageSize, 0, &mappedData);
-
-	size_t offset = 0;
-	for (auto* f : faces) {
-		size_t faceSize = texWidth * texHeight * pixelSize;
-		memcpy((char*)mappedData + offset, f, faceSize);
-		offset += faceSize;
-		stbi_image_free(f);
-	}
-
+	void* mapped = nullptr;
+	VK_CHECK_RESULT(vkMapMemory(device->m_logicalDevice, stagingMemory, 0, imageSize, 0, &mapped));
+	memcpy(mapped, pixels, static_cast<size_t>(imageSize));
 	vkUnmapMemory(device->m_logicalDevice, stagingMemory);
+	stbi_image_free(pixels);
 
-	// --- Create VkImage ---
-	m_width = texWidth;
-	m_height = texHeight;
-	m_mipLevels = static_cast<uint32_t>(floor(log2(std::max(texWidth, texHeight)))) + 1;
+	// Detect if this is an equirectangular (2:1 aspect) map
+	bool srcIsEquirectangular = (texWidth == texHeight * 2);
 
-	VkImageCreateInfo imageCI = {};
+	// Create the image (2D if equirectangular, cube if 6 faces are provided)
+	VkImageCreateInfo imageCI{};
 	imageCI.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
 	imageCI.imageType = VK_IMAGE_TYPE_2D;
 	imageCI.format = format;
-	imageCI.extent = { (uint32_t)texWidth, (uint32_t)texHeight, 1 };
+	imageCI.extent = { static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight), 1 };
 	imageCI.mipLevels = m_mipLevels;
-	imageCI.arrayLayers = numFaces;
+	imageCI.arrayLayers = srcIsEquirectangular ? 1u : 6u;
 	imageCI.samples = VK_SAMPLE_COUNT_1_BIT;
 	imageCI.tiling = VK_IMAGE_TILING_OPTIMAL;
 	imageCI.usage = imageUsageFlags | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-	imageCI.flags = isCubemapFaces ? VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT : 0;
+	imageCI.flags = srcIsEquirectangular ? 0 : VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
+	imageCI.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 
 	VK_CHECK_RESULT(vkCreateImage(device->m_logicalDevice, &imageCI, nullptr, &m_image));
 
 	VkMemoryRequirements memReqs;
 	vkGetImageMemoryRequirements(device->m_logicalDevice, m_image, &memReqs);
 
-	VkMemoryAllocateInfo memAllocInfo = {};
+	VkMemoryAllocateInfo memAllocInfo{};
 	memAllocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
 	memAllocInfo.allocationSize = memReqs.size;
 	memAllocInfo.memoryTypeIndex = device->getMemoryType(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 	VK_CHECK_RESULT(vkAllocateMemory(device->m_logicalDevice, &memAllocInfo, nullptr, &m_deviceMemory));
 	VK_CHECK_RESULT(vkBindImageMemory(device->m_logicalDevice, m_image, m_deviceMemory, 0));
 
-	// --- Copy buffer to image ---
+	// Begin copy commands
 	VkCommandBuffer cmd = device->createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);
 
 	VkImageSubresourceRange subresourceRange{};
 	subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	subresourceRange.baseMipLevel = 0;
 	subresourceRange.levelCount = m_mipLevels;
-	subresourceRange.layerCount = numFaces;
+	subresourceRange.baseArrayLayer = 0;
+	subresourceRange.layerCount = srcIsEquirectangular ? 1u : 6u;
 
-	tools::setImageLayout(
-		cmd,
-		m_image,
-		VK_IMAGE_LAYOUT_UNDEFINED,
-		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-		subresourceRange);
+	tools::setImageLayout(cmd, m_image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, subresourceRange);
 
-	std::vector<VkBufferImageCopy> bufferCopyRegions(numFaces);
-	VkDeviceSize bufferOffset = 0;
+	VkBufferImageCopy region{};
+	region.bufferOffset = 0;
+	region.bufferRowLength = 0;
+	region.bufferImageHeight = 0;
+	region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	region.imageSubresource.mipLevel = 0;
+	region.imageSubresource.baseArrayLayer = 0;
+	region.imageSubresource.layerCount = srcIsEquirectangular ? 1u : 6u;
+	region.imageExtent = { static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight), 1 };
 
-	for (uint32_t face = 0; face < numFaces; ++face) {
-		VkBufferImageCopy region{};
-		region.bufferOffset = bufferOffset;
-		region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		region.imageSubresource.mipLevel = 0;
-		region.imageSubresource.baseArrayLayer = face;
-		region.imageSubresource.layerCount = 1;
-		region.imageExtent = { (uint32_t)texWidth, (uint32_t)texHeight, 1 };
-		bufferCopyRegions[face] = region;
-		bufferOffset += texWidth * texHeight * pixelSize;
-	}
+	vkCmdCopyBufferToImage(cmd, stagingBuffer, m_image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
 
-	vkCmdCopyBufferToImage(
-		cmd,
-		stagingBuffer,
-		m_image,
-		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-		static_cast<uint32_t>(bufferCopyRegions.size()),
-		bufferCopyRegions.data());
-
-	// --- Generate mipmaps ---
+	// Generate mipmaps (safe for 2D as well)
 	tools::generateMipmaps(cmd, device, m_image, format, texWidth, texHeight, m_mipLevels);
 
-	// --- Final layout ---
-	tools::setImageLayout(
-		cmd,
-		m_image,
-		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-		finalImageLayout,
-		subresourceRange);
+	// Final layout transition
+	tools::setImageLayout(cmd, m_image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, finalImageLayout, subresourceRange);
 
 	device->flushCommandBuffer(cmd, copyQueue, true);
 
 	vkDestroyBuffer(device->m_logicalDevice, stagingBuffer, nullptr);
 	vkFreeMemory(device->m_logicalDevice, stagingMemory, nullptr);
+
+	// Create sampler
+	VkSamplerCreateInfo samplerInfo = vkinit::samplerCreateInfo();
+	samplerInfo.magFilter = VK_FILTER_LINEAR;
+	samplerInfo.minFilter = VK_FILTER_LINEAR;
+	samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+	samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+	samplerInfo.addressModeV = samplerInfo.addressModeU;
+	samplerInfo.addressModeW = samplerInfo.addressModeU;
+	samplerInfo.minLod = 0.0f;
+	samplerInfo.maxLod = static_cast<float>(m_mipLevels);
+	samplerInfo.maxAnisotropy = device->m_enabledFeatures.samplerAnisotropy
+		? device->m_deviceProperties.limits.maxSamplerAnisotropy
+		: 1.0f;
+	samplerInfo.anisotropyEnable = device->m_enabledFeatures.samplerAnisotropy ? VK_TRUE : VK_FALSE;
+	VK_CHECK_RESULT(vkCreateSampler(device->m_logicalDevice, &samplerInfo, nullptr, &m_sampler));
+
+	// Image view
+	VkImageViewCreateInfo viewCI{};
+	viewCI.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+	viewCI.image = m_image;
+	viewCI.format = format;
+	viewCI.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	viewCI.subresourceRange.baseMipLevel = 0;
+	viewCI.subresourceRange.levelCount = m_mipLevels;
+	viewCI.subresourceRange.baseArrayLayer = 0;
+	viewCI.subresourceRange.layerCount = srcIsEquirectangular ? 1u : 6u;
+	viewCI.viewType = srcIsEquirectangular ? VK_IMAGE_VIEW_TYPE_2D : VK_IMAGE_VIEW_TYPE_CUBE;
+
+	VK_CHECK_RESULT(vkCreateImageView(device->m_logicalDevice, &viewCI, nullptr, &m_view));
+
+	// Update descriptor
+	UpdateDescriptor();
+
+	if (srcIsEquirectangular)
+	{
+		spdlog::info("[VkSandboxTexture] '{}' detected as equirectangular HDR ({}x{}). Converting to cubemap...",
+			filename, texWidth, texHeight);
+
+		if (!skyboxModel) {
+			spdlog::error("[VkSandboxTexture] Equirectangular detected but no cube model provided for conversion!");
+		}
+		else {
+			try {
+				ConvertEquirectangularToCubemap(copyQueue, skyboxModel);
+			}
+			catch (const std::exception& e) {
+				spdlog::error("[VkSandboxTexture] Equirectangular-to-cubemap conversion failed: {}", e.what());
+			}
+		}
+	}
 }
+
+
+void VkSandboxTexture::ConvertEquirectangularToCubemap(VkQueue copyQueue, vkglTF::Model* skyboxModel)
+{
+	if (!m_pDevice)
+		throw std::runtime_error("ConvertEquirectangularToCubemap: missing device");
+	if (!skyboxModel)
+		throw std::runtime_error("ConvertEquirectangularToCubemap: missing skybox model");
+
+	// --------------- Config ---------------
+	const VkFormat targetFormat = VK_FORMAT_R32G32B32A32_SFLOAT;
+	const uint32_t dim = 512;
+	const uint32_t numMips = 1; // base level only for conversion
+
+	// Save the original source descriptor and view (we will sample from this)
+	VkDescriptorImageInfo srcDescriptor = m_descriptor;
+	VkImage srcImage = m_image;
+	VkImageView srcView = m_view;
+	VkFormat srcFormat = m_format;
+	uint32_t srcMipLevels = m_mipLevels;
+	uint32_t srcLayerCount = m_layerCount;
+
+	// --------------- Create target cubemap (temporary) ---------------
+	VkImage cubeImage = VK_NULL_HANDLE;
+	VkDeviceMemory cubeMemory = VK_NULL_HANDLE;
+	VkImageView cubeView = VK_NULL_HANDLE;
+	VkSampler cubeSampler = VK_NULL_HANDLE;
+	VkDescriptorImageInfo cubeDescriptor{}; // will fill later
+
+	// create image
+	VkImageCreateInfo imageCI = vkinit::imageCreateInfo();
+	imageCI.imageType = VK_IMAGE_TYPE_2D;
+	imageCI.format = targetFormat;
+	imageCI.extent = { dim, dim, 1 };
+	imageCI.mipLevels = numMips;
+	imageCI.arrayLayers = 6;
+	imageCI.samples = VK_SAMPLE_COUNT_1_BIT;
+	imageCI.tiling = VK_IMAGE_TILING_OPTIMAL;
+	imageCI.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+	imageCI.flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
+	imageCI.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	VK_CHECK_RESULT(vkCreateImage(m_pDevice->device(), &imageCI, nullptr, &cubeImage));
+
+	VkMemoryRequirements memReqs{};
+	vkGetImageMemoryRequirements(m_pDevice->device(), cubeImage, &memReqs);
+	VkMemoryAllocateInfo cubeAlloc = vkinit::memoryAllocateInfo();
+	cubeAlloc.allocationSize = memReqs.size;
+	cubeAlloc.memoryTypeIndex = m_pDevice->getMemoryType(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+	VK_CHECK_RESULT(vkAllocateMemory(m_pDevice->device(), &cubeAlloc, nullptr, &cubeMemory));
+	VK_CHECK_RESULT(vkBindImageMemory(m_pDevice->device(), cubeImage, cubeMemory, 0));
+
+	// cube view & sampler
+	{
+		VkImageViewCreateInfo viewCI = vkinit::imageViewCreateInfo();
+		viewCI.viewType = VK_IMAGE_VIEW_TYPE_CUBE;
+		viewCI.format = targetFormat;
+		viewCI.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		viewCI.subresourceRange.baseMipLevel = 0;
+		viewCI.subresourceRange.levelCount = numMips;
+		viewCI.subresourceRange.baseArrayLayer = 0;
+		viewCI.subresourceRange.layerCount = 6;
+		viewCI.image = cubeImage;
+		VK_CHECK_RESULT(vkCreateImageView(m_pDevice->device(), &viewCI, nullptr, &cubeView));
+
+		VkSamplerCreateInfo sampCI = vkinit::samplerCreateInfo();
+		sampCI.magFilter = VK_FILTER_LINEAR;
+		sampCI.minFilter = VK_FILTER_LINEAR;
+		sampCI.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+		sampCI.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+		sampCI.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+		sampCI.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+		sampCI.minLod = 0.0f;
+		sampCI.maxLod = 0.0f;
+		sampCI.anisotropyEnable = m_pDevice->m_enabledFeatures.samplerAnisotropy ? VK_TRUE : VK_FALSE;
+		sampCI.maxAnisotropy = m_pDevice->m_enabledFeatures.samplerAnisotropy ? m_pDevice->m_deviceProperties.limits.maxSamplerAnisotropy : 1.0f;
+		VK_CHECK_RESULT(vkCreateSampler(m_pDevice->device(), &sampCI, nullptr, &cubeSampler));
+
+		cubeDescriptor = vkinit::descriptorImageInfo(cubeSampler, cubeView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	}
+
+	// --------------- Create offscreen 2D render target ---------------
+	VkImage offImage = VK_NULL_HANDLE;
+	VkDeviceMemory offMemory = VK_NULL_HANDLE;
+	VkImageView offView = VK_NULL_HANDLE;
+	{
+		VkImageCreateInfo offCI = vkinit::imageCreateInfo();
+		offCI.imageType = VK_IMAGE_TYPE_2D;
+		offCI.format = targetFormat;
+		offCI.extent = { dim, dim, 1 };
+		offCI.mipLevels = 1;
+		offCI.arrayLayers = 1;
+		offCI.samples = VK_SAMPLE_COUNT_1_BIT;
+		offCI.tiling = VK_IMAGE_TILING_OPTIMAL;
+		offCI.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+		offCI.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+
+		VK_CHECK_RESULT(vkCreateImage(m_pDevice->device(), &offCI, nullptr, &offImage));
+		vkGetImageMemoryRequirements(m_pDevice->device(), offImage, &memReqs);
+		VkMemoryAllocateInfo offAlloc = vkinit::memoryAllocateInfo();
+		offAlloc.allocationSize = memReqs.size;
+		offAlloc.memoryTypeIndex = m_pDevice->getMemoryType(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		VK_CHECK_RESULT(vkAllocateMemory(m_pDevice->device(), &offAlloc, nullptr, &offMemory));
+		VK_CHECK_RESULT(vkBindImageMemory(m_pDevice->device(), offImage, offMemory, 0));
+
+		VkImageViewCreateInfo offViewCI = vkinit::imageViewCreateInfo();
+		offViewCI.viewType = VK_IMAGE_VIEW_TYPE_2D;
+		offViewCI.format = targetFormat;
+		offViewCI.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		offViewCI.subresourceRange.baseMipLevel = 0;
+		offViewCI.subresourceRange.levelCount = 1;
+		offViewCI.subresourceRange.baseArrayLayer = 0;
+		offViewCI.subresourceRange.layerCount = 1;
+		offViewCI.image = offImage;
+		VK_CHECK_RESULT(vkCreateImageView(m_pDevice->device(), &offViewCI, nullptr, &offView));
+	}
+
+	// --------------- Renderpass & framebuffer ---------------
+	VkAttachmentDescription attDesc{};
+	attDesc.format = targetFormat;
+	attDesc.samples = VK_SAMPLE_COUNT_1_BIT;
+	attDesc.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+	attDesc.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+	attDesc.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	attDesc.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+	VkAttachmentReference colorRef{ 0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL };
+	VkSubpassDescription subpass{};
+	subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+	subpass.colorAttachmentCount = 1;
+	subpass.pColorAttachments = &colorRef;
+
+	VkRenderPassCreateInfo rpCI = vkinit::renderPassCreateInfo();
+	rpCI.attachmentCount = 1;
+	rpCI.pAttachments = &attDesc;
+	rpCI.subpassCount = 1;
+	rpCI.pSubpasses = &subpass;
+
+	VkRenderPass renderPass = VK_NULL_HANDLE;
+	VK_CHECK_RESULT(vkCreateRenderPass(m_pDevice->device(), &rpCI, nullptr, &renderPass));
+
+	VkFramebuffer framebuffer = VK_NULL_HANDLE;
+	{
+		VkFramebufferCreateInfo fbCI = vkinit::framebufferCreateInfo();
+		fbCI.renderPass = renderPass;
+		fbCI.attachmentCount = 1;
+		fbCI.pAttachments = &offView;
+		fbCI.width = dim;
+		fbCI.height = dim;
+		fbCI.layers = 1;
+		VK_CHECK_RESULT(vkCreateFramebuffer(m_pDevice->device(), &fbCI, nullptr, &framebuffer));
+	}
+
+	// --------------- Descriptor for source equirectangular texture ---------------
+	// IMPORTANT: use the original source descriptor (srcDescriptor) so the shader sees a 2D view
+	// Make sure the source is in SHADER_READ_ONLY layout before binding and sampling
+	VkCommandBuffer layoutCmd = m_pDevice->createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);
+	{
+		VkImageSubresourceRange srcRange{};
+		srcRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		srcRange.baseMipLevel = 0;
+		srcRange.levelCount = srcMipLevels;
+		srcRange.baseArrayLayer = 0;
+		srcRange.layerCount = srcLayerCount;
+
+		tools::setImageLayout(layoutCmd, srcImage, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, srcRange);
+	}
+	m_pDevice->flushCommandBuffer(layoutCmd, copyQueue, true);
+
+	// Create descriptor set layout / pool / set that expects sampler2D
+	VkDescriptorSetLayout srcDescLayout = VK_NULL_HANDLE;
+	{
+		std::vector<VkDescriptorSetLayoutBinding> bindings = {
+			vkinit::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 0)
+		};
+		VkDescriptorSetLayoutCreateInfo dslCI = vkinit::descriptorSetLayoutCreateInfo(bindings);
+		VK_CHECK_RESULT(vkCreateDescriptorSetLayout(m_pDevice->device(), &dslCI, nullptr, &srcDescLayout));
+	}
+
+	VkDescriptorPool srcDescriptorPool = VK_NULL_HANDLE;
+	VkDescriptorSet srcDescriptorSet = VK_NULL_HANDLE;
+	{
+		VkDescriptorPoolSize poolSize = vkinit::descriptorPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1);
+		VkDescriptorPoolCreateInfo poolCI = vkinit::descriptorPoolCreateInfo(1, &poolSize, 1);
+		VK_CHECK_RESULT(vkCreateDescriptorPool(m_pDevice->device(), &poolCI, nullptr, &srcDescriptorPool));
+
+		VkDescriptorSetAllocateInfo allocInfo = vkinit::descriptorSetAllocateInfo(srcDescriptorPool, &srcDescLayout, 1);
+		VK_CHECK_RESULT(vkAllocateDescriptorSets(m_pDevice->device(), &allocInfo, &srcDescriptorSet));
+
+		// NOTE: use srcDescriptor (saved earlier) here
+		VkWriteDescriptorSet write = vkinit::writeDescriptorSet(srcDescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 0, &srcDescriptor);
+		vkUpdateDescriptorSets(m_pDevice->device(), 1, &write, 0, nullptr);
+	}
+
+	// --------------- Pipeline layout / pipeline (push constant mvp) ---------------
+	struct PushBlock { 
+		glm::mat4 mvp; 
+	};
+	VkPushConstantRange pushRange = vkinit::pushConstantRange(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(PushBlock), 0);
+
+	VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
+	{
+		VkPipelineLayoutCreateInfo plCI = vkinit::pipelineLayoutCreateInfo(&srcDescLayout, 1);
+		plCI.pushConstantRangeCount = 1;
+		plCI.pPushConstantRanges = &pushRange;
+		VK_CHECK_RESULT(vkCreatePipelineLayout(m_pDevice->device(), &plCI, nullptr, &pipelineLayout));
+	}
+
+	PipelineConfigInfo cfg{};
+	VkSandboxPipeline::defaultPipelineConfigInfo(cfg);
+	cfg.renderPass = renderPass;
+	cfg.pipelineLayout = pipelineLayout;
+	cfg.descriptorSetLayouts = { srcDescLayout };
+	cfg.pushConstantRanges = { pushRange };
+	cfg.bindingDescriptions = { vkinit::vertexInputBindingDescription(0, sizeof(vkglTF::Vertex), VK_VERTEX_INPUT_RATE_VERTEX) };
+	cfg.attributeDescriptions = { 
+	vkinit::vertexInputAttributeDescription(0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(vkglTF::Vertex, pos)),
+	vkinit::vertexInputAttributeDescription(0, 1, VK_FORMAT_R32G32B32_SFLOAT, offsetof(vkglTF::Vertex, normal))
+	};
+
+	std::string vert = std::string(PROJECT_ROOT_DIR) + "/res/shaders/spirV/cubemap.vert.spv";
+	std::string frag = std::string(PROJECT_ROOT_DIR) + "/res/shaders/spirV/equirect_to_cube.frag.spv";
+	VkSandboxPipeline pipeline{ *m_pDevice, vert, frag, cfg };
+
+	// --------------- Command buffer: render each face ---------------
+	VkCommandBuffer cmdBuf = m_pDevice->createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);
+
+	// Transition cube image to TRANSFER_DST for copies
+	VkImageSubresourceRange cubeRange{};
+	cubeRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	cubeRange.baseMipLevel = 0;
+	cubeRange.levelCount = numMips;
+	cubeRange.baseArrayLayer = 0;
+	cubeRange.layerCount = 6;
+	tools::setImageLayout(cmdBuf, cubeImage, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, cubeRange);
+
+	std::vector<glm::mat4> matrices = {
+		// +X, -X, +Y (top), -Y (bottom), +Z, -Z
+		glm::lookAt(glm::vec3(0.0f), glm::vec3(1.0f,  0.0f,  0.0f), glm::vec3(0.0f, -1.0f,  0.0f)), // +X
+		glm::lookAt(glm::vec3(0.0f), glm::vec3(-1.0f,  0.0f,  0.0f), glm::vec3(0.0f, -1.0f,  0.0f)), // -X
+		glm::lookAt(glm::vec3(0.0f), glm::vec3(0.0f,  1.0f,  0.0f), glm::vec3(0.0f,  0.0f,  1.0f)), // +Y (top)
+		glm::lookAt(glm::vec3(0.0f), glm::vec3(0.0f, -1.0f,  0.0f), glm::vec3(0.0f,  0.0f, -1.0f)), // -Y (bottom)
+		glm::lookAt(glm::vec3(0.0f), glm::vec3(0.0f,  0.0f,  1.0f), glm::vec3(0.0f, -1.0f,  0.0f)), // +Z
+		glm::lookAt(glm::vec3(0.0f), glm::vec3(0.0f,  0.0f, -1.0f), glm::vec3(0.0f, -1.0f,  0.0f))  // -Z
+	};
+	std::swap(matrices[2], matrices[3]);
+
+	VkViewport vp = vkinit::viewport((float)dim, (float)dim, 0.0f, 1.0f);
+	VkRect2D sc = vkinit::rect2D(dim, dim, 0, 0);
+	vkCmdSetViewport(cmdBuf, 0, 1, &vp);
+	vkCmdSetScissor(cmdBuf, 0, 1, &sc);
+
+	glm::mat3 faceRot[6] = {
+	glm::mat3(1.0f), // +X
+	glm::mat3(1.0f), // -X
+	glm::mat3(glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(0,1,0))),  // +Y rotated 90°
+	glm::mat3(glm::rotate(glm::mat4(1.0f), glm::radians(-90.0f), glm::vec3(0,1,0))), // -Y rotated -90°
+	glm::mat3(1.0f), // +Z
+	glm::mat3(1.0f)  // -Z
+	};
+
+	for (uint32_t face = 0; face < 6; ++face) {
+		VkClearValue clearColor{};
+		clearColor.color.float32[0] = 0.0f;
+		clearColor.color.float32[1] = 0.0f;
+		clearColor.color.float32[2] = 0.0f;
+		clearColor.color.float32[3] = 1.0f;
+
+		VkRenderPassBeginInfo rpBI = vkinit::renderPassBeginInfo();
+		rpBI.renderPass = renderPass;
+		rpBI.framebuffer = framebuffer;
+		rpBI.renderArea.extent = { dim, dim };
+		rpBI.clearValueCount = 1;
+		rpBI.pClearValues = &clearColor;
+		vkCmdBeginRenderPass(cmdBuf, &rpBI, VK_SUBPASS_CONTENTS_INLINE);
+
+		PushBlock push{};
+		push.mvp = glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, 512.0f) * matrices[face];
+		push.mvp[1][1] *= -1.0f;
+
+		pipeline.bind(cmdBuf);
+		vkCmdBindDescriptorSets(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.getPipelineLayout(), 0, 1, &srcDescriptorSet, 0, nullptr);
+		vkCmdPushConstants(cmdBuf, pipeline.getPipelineLayout(), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PushBlock), &push);
+
+		skyboxModel->bind(cmdBuf);
+		skyboxModel->gltfDraw(cmdBuf);
+
+		vkCmdEndRenderPass(cmdBuf);
+
+		// copy offscreen -> cube face
+		tools::setImageLayout(cmdBuf, offImage, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+
+		VkImageCopy region{};
+		region.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		region.srcSubresource.mipLevel = 0;
+		region.srcSubresource.baseArrayLayer = 0;
+		region.srcSubresource.layerCount = 1;
+		region.srcOffset = { 0, 0, 0 };
+
+		region.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		region.dstSubresource.mipLevel = 0;
+		region.dstSubresource.baseArrayLayer = face;
+		region.dstSubresource.layerCount = 1;
+		region.dstOffset = { 0, 0, 0 };
+
+		region.extent = { dim, dim, 1 };
+
+		vkCmdCopyImage(
+			cmdBuf,
+			offImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+			cubeImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			1, &region);
+
+		// restore offscreen layout for next render
+		tools::setImageLayout(cmdBuf, offImage, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+	}
+
+	// transition cube image -> shader read
+	tools::setImageLayout(cmdBuf, cubeImage, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, cubeRange);
+
+	// submit and wait
+	m_pDevice->flushCommandBuffer(cmdBuf, copyQueue, true);
+
+	// --------------- Replace this texture's GPU data with the new cubemap ---------------
+	// destroy old resources that belong to this object (but do NOT destroy the source image/view that are managed externally if you rely on them elsewhere)
+	if (m_view != VK_NULL_HANDLE) vkDestroyImageView(m_pDevice->device(), m_view, nullptr);
+	if (m_image != VK_NULL_HANDLE) vkDestroyImage(m_pDevice->device(), m_image, nullptr);
+	if (m_deviceMemory != VK_NULL_HANDLE) vkFreeMemory(m_pDevice->device(), m_deviceMemory, nullptr);
+	if (m_sampler != VK_NULL_HANDLE) vkDestroySampler(m_pDevice->device(), m_sampler, nullptr);
+
+	// adopt cube resources
+	m_image = cubeImage;
+	m_deviceMemory = cubeMemory;
+	m_view = cubeView;
+	m_sampler = cubeSampler;
+	m_descriptor = cubeDescriptor;
+	m_format = targetFormat;
+	m_width = dim;
+	m_height = dim;
+	m_mipLevels = numMips;
+	m_layerCount = 6;
+	m_bIsCubemap = true;
+	m_imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+	// cleanup temporaries used during conversion
+	vkDestroyImageView(m_pDevice->device(), offView, nullptr);
+	vkDestroyImage(m_pDevice->device(), offImage, nullptr);
+	vkFreeMemory(m_pDevice->device(), offMemory, nullptr);
+
+	// destroy descriptor pool & layout used for source sampling
+	vkDestroyDescriptorPool(m_pDevice->device(), srcDescriptorPool, nullptr);
+	vkDestroyDescriptorSetLayout(m_pDevice->device(), srcDescLayout, nullptr);
+
+	// destroy renderpass/framebuffer/pipeline resources we created (but DO NOT destroy pipeline.getPipelineLayout() - pipeline wrapper manages that)
+	vkDestroyFramebuffer(m_pDevice->device(), framebuffer, nullptr);
+	vkDestroyRenderPass(m_pDevice->device(), renderPass, nullptr);
+
+	// pipeline destructor will cleanup pipeline; destroy pipelineLayout we created only if still valid and not owned by pipeline
+	// (some wrappers take ownership; to be safe we avoid destroying it here)
+
+	spdlog::info("[VkSandboxTexture] Equirectangular -> cubemap conversion done ({}x{})", dim, dim);
+}
+
 
 
 

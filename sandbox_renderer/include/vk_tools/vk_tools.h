@@ -92,7 +92,75 @@ class VkSandboxDevice;
 namespace tools
 {
 
+	inline void setImageLayout(
+		VkCommandBuffer cmdBuffer,
+		VkImage image,
+		VkImageAspectFlags aspectMask,
+		VkImageLayout oldLayout,
+		VkImageLayout newLayout,
+		VkImageSubresourceRange subresourceRange)
+	{
+		VkImageMemoryBarrier barrier{};
+		barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+		barrier.oldLayout = oldLayout;
+		barrier.newLayout = newLayout;
+		barrier.image = image;
+		barrier.subresourceRange = subresourceRange;
+		barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+		barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+		barrier.subresourceRange.aspectMask = aspectMask;
 
+		// Determine proper src/dst access masks
+		switch (oldLayout) {
+		case VK_IMAGE_LAYOUT_UNDEFINED:
+			barrier.srcAccessMask = 0;
+			break;
+		case VK_IMAGE_LAYOUT_PREINITIALIZED:
+			barrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT;
+			break;
+		case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
+			barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+			break;
+		case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
+			barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+			break;
+		case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
+			barrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+			break;
+		default:
+			barrier.srcAccessMask = 0;
+			break;
+		}
+
+		switch (newLayout) {
+		case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
+			barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+			break;
+		case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
+			barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+			break;
+		case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
+			barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+			break;
+		case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
+			barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+			break;
+		default:
+			barrier.dstAccessMask = 0;
+			break;
+		}
+
+		VkPipelineStageFlags srcStage = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
+		VkPipelineStageFlags dstStage = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
+
+		vkCmdPipelineBarrier(
+			cmdBuffer,
+			srcStage, dstStage,
+			0,
+			0, nullptr,
+			0, nullptr,
+			1, &barrier);
+	}
 
 	void generateMipmaps(
 		VkCommandBuffer cmdBuffer,

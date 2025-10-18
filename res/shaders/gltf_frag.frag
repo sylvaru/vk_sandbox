@@ -25,6 +25,7 @@ layout(set = 2, binding = 1) uniform sampler2D normalMap;
 layout(set = 2, binding = 2) uniform sampler2D metallicMap;
 layout(set = 2, binding = 3) uniform sampler2D roughnessMap;
 layout(set = 2, binding = 4) uniform sampler2D aoMap;
+layout(set = 2, binding = 5) uniform sampler2D emissiveMap;
 
 layout(set = 3, binding = 0) uniform sampler2D brdfLUT;
 layout(set = 3, binding = 1) uniform samplerCube irradianceMap;
@@ -115,11 +116,14 @@ void main() {
     vec2 brdf = texture(brdfLUT, vec2(NdotV, roughness)).rg;
     vec3 specularIBL = prefilteredColor * (kS * brdf.x + brdf.y);
 
+    // Emissive 
+    vec3 emissive = texture(emissiveMap, uvMaterial).rgb;
+
     // --- Compose ---
     vec3 diffuseTerm = diffuseIBL * kD * ao;
     vec3 ambientIBL = diffuseTerm + specularIBL;
     vec3 ambientAdd = ubo.ambientLightColor.rgb * ubo.ambientLightColor.a;
-    vec3 pbrColor = ambientIBL + ambientAdd;
+    vec3 pbrColor = ambientIBL + ambientAdd + emissive;
 
     // tone mapping + gamma (ACES-lite / simple Reinhard)
     vec3 color = pbrColor / (pbrColor + vec3(1.0));

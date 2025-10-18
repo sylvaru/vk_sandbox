@@ -13,6 +13,7 @@
 
 #include "vk_tools/vk_init.h"
 #include "vk_tools/vk_tools.h"
+#include "vulkan_gltf.h"
 
 #include "ktx.h"
 #include "ktxvulkan.h"
@@ -44,7 +45,8 @@ public:
 		VkSandboxDevice* device,
 		VkQueue copyQueue,
 		VkImageUsageFlags imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT,
-		VkImageLayout imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+		VkImageLayout imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+		);
 
 	void STBLoadCubemapFromFile(
 		const std::string& filename,
@@ -53,7 +55,8 @@ public:
 		VkQueue            copyQueue,
 		VkImageUsageFlags  imageUsageFlags,
 		VkImageLayout      finalImageLayout,
-		bool               forceLinear
+		bool               forceLinear,
+		vkglTF::Model* skyboxModel = nullptr
 	);
 
 	void Destroy();
@@ -69,6 +72,9 @@ public:
 		VkFilter           filter = VK_FILTER_LINEAR,
 		VkImageUsageFlags  imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT,
 		VkImageLayout      imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+
+	void ConvertEquirectangularToCubemap(VkQueue copyQueue, vkglTF::Model* skyboxModel);
 
 	VkDescriptorImageInfo GetDescriptor() const { return m_descriptor; }
 	VkSampler GetSampler() const { return m_sampler; }
@@ -95,6 +101,8 @@ private:
 
 	void CopyBufferToImage(VkBuffer buffer, uint32_t width, uint32_t height, uint32_t layerCount);
 	VkDeviceMemory AllocateMemory(VkMemoryRequirements memRequirements, VkMemoryPropertyFlags properties);
+
+
 
 
 

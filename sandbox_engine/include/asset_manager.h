@@ -40,6 +40,8 @@ namespace Core {
         void generateIrradianceMap();
         void generatePrefilteredEnvMap();
 
+
+
         using OBJmodelHandle = std::shared_ptr<VkSandboxOBJmodel>;
         using GLTFmodelHandle = std::shared_ptr<vkglTF::Model>;
         //using TextureHandle  = std::shared_ptr<VulkanTexture>;

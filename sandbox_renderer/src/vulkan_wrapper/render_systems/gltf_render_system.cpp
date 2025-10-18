@@ -176,7 +176,7 @@ void GltfRenderSystem::render(FrameInfo& frame) {
     for (auto& [id, go] : frame.gameObjects) {
 
         if (go->getPreferredRenderTag() != RenderTag::Gltf) {
-            continue; // not mine, skip
+            continue;
         }
         auto baseModel = go->getModel();
         if (!baseModel) continue;
