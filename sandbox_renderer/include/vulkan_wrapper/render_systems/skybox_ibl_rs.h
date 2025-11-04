@@ -5,6 +5,7 @@
 #include "vulkan_wrapper/vulkan_pipeline.h"
 #include "vulkan_wrapper/vulkan_descriptor.h"
 #include "vulkan_wrapper/vulkan_gltf.h"
+#include "vulkan_wrapper/core/render_graph.h"
 #include <vulkan/vulkan.h>
 
 // STD
@@ -33,7 +34,7 @@ public:
         VkSandboxDescriptorPool& descriptorPool);
 
     void render(FrameInfo& frameInfo) override;
-
+    void record(const RGContext& rgctx, FrameInfo& frame);
 
     inline void setCubemapTexture(const VkDescriptorImageInfo& info) {
         m_skyboxImageInfo = info;
@@ -42,20 +43,22 @@ public:
 
     inline void setCubemapByName(const std::string& name, const IAssetProvider& provider) {
         VkDescriptorImageInfo desc = provider.getCubemapDescriptor(name);
-        setCubemapTexture(desc); // <--- this is where we can handle descriptor set allocation
+        setCubemapTexture(desc);
     }
 
     void setSkyboxModel(const std::shared_ptr<IModel>& model) { m_skyboxModel = model; }
 
     void createSkyboxDescriptorSetLayout();
     void allocateAndWriteSkyboxDescriptorSet();
+
+    bool m_bHasCubemap = false;
 private:
     void createPipelineLayout(VkDescriptorSetLayout globalSetLayout);
     void createPipeline(VkRenderPass renderPass);
 
 
     VkDescriptorImageInfo m_skyboxImageInfo{};
-    bool m_bHasCubemap = false;
+
 
     VkDescriptorSetLayout m_skyboxLayout;
     VkSandboxDevice& m_device;

@@ -6,7 +6,7 @@
 #include "interfaces/scene_i.h"
 #include "interfaces/asset_provider_i.h"
 #include "vulkan_wrapper/render_systems/obj_render_system.h"
-#include "vulkan_wrapper/render_systems/gltf_pbr_rs.h"
+#include "vulkan_wrapper/render_systems/gltf_render_system.h"
 #include "vulkan_wrapper/render_systems/scene_rs.h"
 #include "vulkan_wrapper/render_systems/skybox_ibl_rs.h"
 #include "vulkan_wrapper/render_systems/point_light_rs.h"
@@ -15,9 +15,12 @@
 #include "vulkan_wrapper/vulkan_swapchain.h"
 #include "vulkan_wrapper/vulkan_descriptor.h"
 #include "vulkan_wrapper/vulkan_buffer.h"
-#include "vulkan_wrapper/core/render_graph.h"
 #include <vector>
 #include <array>
+
+class GltfRenderSystem;
+class PointLightRS;
+class SceneRenderSystem;
 
 class VkSandboxRenderer : public ISandboxRenderer
 {
@@ -42,7 +45,7 @@ public:
 
 	void initializeSystems(IAssetProvider& assets, IScene& scene);
 	void initSkyboxSystem();
-	void renderSystems(FrameInfo& frame)override;
+	void renderSystems(FrameInfo& info, FrameContext& frame)override;
 
 	void waitDeviceIdle() override;
 
@@ -84,7 +87,7 @@ private:
 
 	VkSandboxDevice&											m_device;
 	SandboxWindow&											    m_window;
-
+	std::vector<std::unique_ptr<IRenderSystem>>				   m_systems;
 
 	std::unique_ptr<VkSandboxSwapchain>					     m_swapchain;
 	std::shared_ptr<VkSandboxSwapchain>					  m_oldSwapchain;
@@ -94,17 +97,15 @@ private:
 	std::vector<std::unique_ptr<VkSandboxBuffer>>			m_uboBuffers;
 	std::vector<VkDescriptorSet>				  m_globalDescriptorSets;
 	std::vector<VkFence>							    m_inFlightFences;
-
-	// render systems
-
-	std::unique_ptr<SkyboxIBLrenderSystem> m_skyboxSystem;
-	std::unique_ptr<SceneRenderSystem>     m_sceneSystem;
-	std::unique_ptr<GltfPbrRenderSystem>   m_gltfPbrSystem;
-	std::unique_ptr<PointLightRS>          m_pointLightSystem;
-	std::unique_ptr<ObjRenderSystem>       m_objSystem;
+	std::vector<VkImageLayout>					 m_swapchainImageLayouts;
+	std::vector<VkImageLayout>						 m_depthImageLayouts;
 
 
-	// misc private
+	std::unique_ptr<SkyboxIBLrenderSystem>				  m_skyboxSystem;
+	std::unique_ptr<GltfRenderSystem>					    m_gltfSystem;
+	std::unique_ptr<PointLightRS>					  m_pointLightSystem;
+	std::unique_ptr<SceneRenderSystem>					   m_sceneSystem;
+
 	void createGlobalDescriptorObjects();
 	void allocateGlobalDescriptors();
 	
@@ -112,7 +113,7 @@ private:
 	void createSwapChain();
 	void createCommandBuffers();
 	void freeCommandBuffers();
-	void recreateSwapchain();
+	//void recreateSwapchain();
 
 
 };

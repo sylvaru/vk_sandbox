@@ -8,7 +8,7 @@
 
     {
       "special": "lights",
-      "renderSystem":  "pointLight",
+      "renderSystem": "pointLight",
       "count": 8,
       "radius": 10.0,
       "height": 6.0,
@@ -29,13 +29,6 @@
       "usage": "skybox",
       "cubemap": "skybox_hdr",
       "renderSystem": "skybox"
-    },
-    {
-      "name": "quad",
-      "position": [ 0.0, 0.0, 0.0 ],
-      "rotation": [ -90.0, 0.0, 0.0 ],
-      "scale": [ 10.0, 10.0, 1.0 ],
-      "renderSystem": "obj"
     },
     {
       "name": "Helmet",

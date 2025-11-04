@@ -3,13 +3,15 @@
 #include <array>
 #include <cassert>
 #include <spdlog/spdlog.h>
+#include "vulkan_wrapper/core/render_graph.h"
 
-VkSandboxRenderer::VkSandboxRenderer(VkSandboxDevice& device, SandboxWindow& window)
+VkSandboxRenderer::VkSandboxRenderer(
+    VkSandboxDevice& device,
+    SandboxWindow& window)
     : m_device(device),
     m_window(window)
 {
-    recreateSwapchain();
-
+    createSwapChain();
     createGlobalDescriptorObjects();
     allocateGlobalDescriptors();
 }
@@ -21,13 +23,11 @@ void VkSandboxRenderer::createGlobalDescriptorObjects() {
 
 
     m_pool = VkSandboxDescriptorPool::Builder{ m_device }
-        .setMaxSets(FrameCount + 512) // allow plenty of descriptor sets for materials
+        .setMaxSets(FrameCount + 512)
         .addPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, FrameCount)
-        .addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 256) // accomodate many material textures
+        .addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 256)
         .setPoolFlags(VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT)
         .build();
-
-
 
     // === global UBO layout (set=0) ===
     m_globalLayout = VkSandboxDescriptorSetLayout::Builder{ m_device }
@@ -71,21 +71,19 @@ void VkSandboxRenderer::allocateGlobalDescriptors() {
     
 }
 
-void VkSandboxRenderer::initializeSystems(IAssetProvider& provider, IScene& scene) {
-    // grab the things every system will need
+void VkSandboxRenderer::initializeSystems(
+    IAssetProvider& provider,
+    IScene& scene) 
+{
     VkRenderPass rp = m_swapchain->getRenderPass();
     VkDescriptorSetLayout globalLayout = m_globalLayout->getDescriptorSetLayout();
     VkSandboxDescriptorPool& pool = *m_pool;
 
+    m_skyboxSystem = std::make_unique<SkyboxIBLrenderSystem>(m_device, rp, globalLayout, pool);
 
-    // --- SKYBOX SYSTEM (create into the member, then configure) ---
-    m_skyboxSystem = std::make_unique<SkyboxIBLrenderSystem>(m_device, rp, globalLayout);
-
-    // Try to get skybox object from scene
     if (auto skyboxOpt = scene.getSkyboxObject()) {
         IGameObject& skyObj = skyboxOpt.value().get();
 
-        // Get and set model (if available)
         if (auto skyboxModelBase = provider.getGLTFmodel("cube")) {
             m_skyboxSystem->setSkyboxModel(skyboxModelBase);
         }
@@ -93,7 +91,6 @@ void VkSandboxRenderer::initializeSystems(IAssetProvider& provider, IScene& scen
             spdlog::warn("Skybox object has no model");
         }
 
-        // Get and set cubemap (may throw)
         auto cubemapName = skyObj.getCubemapTextureName();
         try {
             VkDescriptorImageInfo cubemapDesc = provider.getCubemapDescriptor(cubemapName);
@@ -108,13 +105,9 @@ void VkSandboxRenderer::initializeSystems(IAssetProvider& provider, IScene& scen
             }
 
             m_skyboxSystem->setCubemapTexture(cubemapDesc);
-            m_skyboxSystem->m_bHasCubemap = true; // if that flag is public/accessible; otherwise let init handle allocation
+            m_skyboxSystem->m_bHasCubemap = true;
             m_skyboxSystem->init(
-                m_device,
-                m_swapchain->getRenderPass(),
-                m_globalLayout->getDescriptorSetLayout(),
-                *m_pool,
-                FrameCount);
+                m_device, rp, globalLayout, pool);
         }
         catch (const std::exception& e) {
             spdlog::warn("Skybox cubemap '{}' not found: {}", cubemapName, e.what());
@@ -125,6 +118,20 @@ void VkSandboxRenderer::initializeSystems(IAssetProvider& provider, IScene& scen
     }
 
 
+    m_gltfSystem = std::make_unique<GltfRenderSystem>(
+        m_device,
+        rp,
+        globalLayout,
+        pool,
+        provider,
+        FrameCount
+    );
+
+    m_pointLightSystem = std::make_unique<PointLightRS>(
+        m_device,
+        rp,
+        globalLayout
+    );
 
     m_sceneSystem = std::make_unique<SceneRenderSystem>(
         m_device,
@@ -133,45 +140,11 @@ void VkSandboxRenderer::initializeSystems(IAssetProvider& provider, IScene& scen
         provider
     );
 
-    m_sceneSystem->init(
-        m_device,
-        m_swapchain->getRenderPass(),
-        m_globalLayout->getDescriptorSetLayout(),
-        *m_pool,
-        FrameCount);
-    
-
-
-    // gltf pbr system
-    m_gltfPbrSystem = std::make_unique<GltfPbrRenderSystem>(
-        m_device,
-        m_swapchain->getRenderPass(),
-        m_globalLayout->getDescriptorSetLayout(),
-        provider
-    );
-
-    m_gltfPbrSystem->init(
-        m_device,
-        m_swapchain->getRenderPass(),
-        m_globalLayout->getDescriptorSetLayout(),
-        *m_pool,
-        FrameCount
-    );
-    // point light system
-    m_pointLightSystem = std::make_unique<PointLightRS>(
-        m_device,
-        m_swapchain->getRenderPass(),
-        m_globalLayout->getDescriptorSetLayout()
-    );
-
-   
-    m_pointLightSystem->init(
-        m_device,
-        m_swapchain->getRenderPass(),
-        m_globalLayout->getDescriptorSetLayout(),
-        *m_pool,
-        FrameCount
-    );
+    //m_systems.push_back(std::make_unique<ObjRenderSystem>(
+    //    m_device,
+    //    rp,
+    //    globalLayout
+    //));
 
 }
 void VkSandboxRenderer::updateSystems(FrameInfo& frame, GlobalUbo& ubo, float deltaTime)
@@ -179,77 +152,105 @@ void VkSandboxRenderer::updateSystems(FrameInfo& frame, GlobalUbo& ubo, float de
     m_pointLightSystem->update(frame, ubo);
 }
 
-void VkSandboxRenderer::renderSystems(FrameInfo& frame) {
-
+void VkSandboxRenderer::renderSystems(FrameInfo& info, FrameContext& frame) {
     RenderGraph graph;
 
-    RGHandle color = graph.importExternal("SwapchainColor");
-    RGHandle depth = graph.importExternal("Depth");
+    uint32_t imgIndex = frame.imageIndex;
+    VkImage swapImg = m_swapchain->getImage(imgIndex);
+    VkImageView swapView = m_swapchain->getImageView(imgIndex);
+    VkImage depthImg = m_swapchain->getDepthImage(imgIndex);
+    VkImageView depthView = m_swapchain->getDepthImageView(imgIndex);
+    VkImageLayout colorLastLayout = m_swapchainImageLayouts[imgIndex];
+    VkImageLayout depthlastLayout = m_depthImageLayouts[imgIndex];
 
-    RGContext rgCtx;
+    RGHandle color = graph.importExternal("SwapchainColor", swapImg, swapView, colorLastLayout);
+    RGHandle depth = graph.importExternal("Depth", depthImg, depthView, depthlastLayout);
+
+    RGContext rgCtx{};
     rgCtx.device = &m_device;
-    rgCtx.cmd = frame.commandBuffer;
+    rgCtx.cmd = frame.primaryGraphicsCommandBuffer;
     rgCtx.frameIndex = frame.frameIndex;
-    rgCtx.globalSet = frame.globalDescriptorSet;
+    rgCtx.frame = &info;
+    rgCtx.globalSet = info.globalDescriptorSet;
 
-    // --- Skybox: first ---
     if (m_skyboxSystem) {
         graph.addPass("Skybox")
             .write(color, RGUsage::WriteColor)
             .write(depth, RGUsage::WriteDepth)
-            .setExecute([this, &frame](const RGContext& ctx) {
-            m_skyboxSystem->record(ctx, frame);
+            .setExecute([this](const RGContext& ctx) {
+            FrameInfo tmpFrame = *ctx.frame;
+            tmpFrame.commandBuffer = ctx.cmd;
+            tmpFrame.frameIndex = static_cast<int>(ctx.frameIndex);
+            tmpFrame.globalDescriptorSet = ctx.globalSet;
+            m_skyboxSystem->record(ctx, tmpFrame);
                 });
     }
 
-    // --- Scene (static or non-pbr objects) ---
+    if (m_gltfSystem) {
+        graph.addPass("GLTF")
+            .write(color, RGUsage::WriteColor)
+            .write(depth, RGUsage::WriteDepth)
+            .setExecute([this](const RGContext& ctx) {
+            FrameInfo tmpFrame = *ctx.frame;
+            tmpFrame.commandBuffer = ctx.cmd;
+            tmpFrame.frameIndex = static_cast<int>(ctx.frameIndex);
+            tmpFrame.globalDescriptorSet = ctx.globalSet;
+            m_gltfSystem->record(ctx, tmpFrame);
+                });
+    }
+    if (m_pointLightSystem) {
+        graph.addPass("PointLight")
+            .write(color, RGUsage::WriteColor)
+            .write(depth, RGUsage::WriteDepth)
+            .setExecute([this](const RGContext& ctx) {
+            FrameInfo tmpFrame = *ctx.frame;
+            tmpFrame.commandBuffer = ctx.cmd;
+            tmpFrame.frameIndex = static_cast<int>(ctx.frameIndex);
+            tmpFrame.globalDescriptorSet = ctx.globalSet;
+            m_pointLightSystem->record(ctx, tmpFrame);
+                });
+    }
     if (m_sceneSystem) {
         graph.addPass("Scene")
             .write(color, RGUsage::WriteColor)
             .write(depth, RGUsage::WriteDepth)
-            .setExecute([this, &frame](const RGContext& ctx) {
-            m_sceneSystem->record(ctx, frame);
+            .setExecute([this](const RGContext& ctx) {
+            FrameInfo tmpFrame = *ctx.frame;
+            tmpFrame.commandBuffer = ctx.cmd;
+            tmpFrame.frameIndex = static_cast<int>(ctx.frameIndex);
+            tmpFrame.globalDescriptorSet = ctx.globalSet;
+            m_sceneSystem->record(ctx, tmpFrame);
                 });
     }
-
-    // --- GLTF PBR (models that bind material images) ---
-    if (m_gltfPbrSystem) {
-        graph.addPass("GltfPbr")
-            .write(color, RGUsage::WriteColor)
-            .write(depth, RGUsage::WriteDepth)
-            .setExecute([this, &frame](const RGContext& ctx) {
-            m_gltfPbrSystem->record(ctx, frame);
-                });
-    }
-
-    // --- Point light pass (additive) ---
-    if (m_pointLightSystem) {
-        graph.addPass("PointLights")
-            .write(color, RGUsage::WriteColor)
-            .setExecute([this, &frame](const RGContext& ctx) {
-            m_pointLightSystem->record(ctx, frame);
-                });
-    }
-
 
     graph.compile();
-    graph.execute(rgCtx);
+    graph.emitPreBarriers(rgCtx);
+
+    ISandboxRenderer::FrameContext localRenderCtx = frame;
+    localRenderCtx.primaryGraphicsCommandBuffer = rgCtx.cmd;
+    beginSwapChainRenderPass(localRenderCtx);
+
+    graph.executePasses(rgCtx);
+
+    endSwapChainRenderPass(localRenderCtx);
+
+    graph.emitPostBarriers(rgCtx);
 
 }
+
 
 ISandboxRenderer::FrameContext VkSandboxRenderer::beginFrame() {
     // 1) AcquireNextImage does the fence‐wait for the current in‐flight frame internally
     VkResult result = m_swapchain->acquireNextImage(&m_currentImageIndex);
     if (result == VK_ERROR_OUT_OF_DATE_KHR) {
-        recreateSwapchain();
-        return {}; // invalid context
+        createSwapChain();
+        return {};
     }
     if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
         throw std::runtime_error("Failed to acquire swap chain image");
     }
 
     // 2) Map imageIndex → frameIndex (in‐flight slot)
-    //    Typically they’re the same because swapchain was created with MAX_FRAMES_IN_FLIGHT images.
     m_currentFrameIndex = m_currentImageIndex % FrameCount;
 
     // 3) Begin recording
@@ -266,32 +267,29 @@ ISandboxRenderer::FrameContext VkSandboxRenderer::beginFrame() {
     ISandboxRenderer::FrameContext ctx{};
     ctx.graphicsCommandBuffers = m_commandBuffers;
     ctx.primaryGraphicsCommandBuffer = cmd;
+    ctx.imageIndex = m_currentImageIndex;
     ctx.frameIndex = m_currentFrameIndex;
-    // let the game know which fence is in flight if it wants to wait on it:
     ctx.frameFence = m_swapchain->getFence(m_currentFrameIndex);
     return ctx;
 }
 void VkSandboxRenderer::endFrame(FrameContext& frame) {
     assert(m_bIsFrameStarted && "endFrame() called when no frame in progress");
 
-    // 1) finish command buffer
     if (vkEndCommandBuffer(frame.primaryGraphicsCommandBuffer) != VK_SUCCESS) {
         throw std::runtime_error("Failed to end command buffer");
     }
 
-    // 2) hand off to swapchain (which will queue submit & signal its fence)
     VkResult result = m_swapchain->submitCommandBuffers(
         &frame.primaryGraphicsCommandBuffer,
-        &m_currentImageIndex  // you could also store this in frame
+        &m_currentImageIndex
     );
 
-    // 3) handle resize/out‑of‑date
     if (result == VK_ERROR_OUT_OF_DATE_KHR
         || result == VK_SUBOPTIMAL_KHR
         || m_window.wasWindowResized())
     {
         m_window.resetWindowResizedFlag();
-        recreateSwapchain();
+        createSwapChain();
     }
     else if (result != VK_SUCCESS) {
         throw std::runtime_error("Failed to present swap chain image!");
@@ -301,16 +299,18 @@ void VkSandboxRenderer::endFrame(FrameContext& frame) {
     m_bIsFrameStarted = false;
     m_currentFrameIndex = (m_currentFrameIndex + 1) % FrameCount;
 }
+
+
 void VkSandboxRenderer::beginSwapChainRenderPass(FrameContext& frame)
 {
     assert(m_bIsFrameStarted && "Can't call beginSwapChainRenderPass if frame is not in progress");
- 
+
+    VkCommandBuffer cmd = frame.primaryGraphicsCommandBuffer;
 
     VkRenderPassBeginInfo renderPassInfo{};
     renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
     renderPassInfo.renderPass = m_swapchain->getRenderPass();
-    renderPassInfo.framebuffer = m_swapchain->getFrameBuffer(m_currentImageIndex);
-
+    renderPassInfo.framebuffer = m_swapchain->getFrameBuffer(frame.imageIndex);
     renderPassInfo.renderArea.offset = { 0, 0 };
     renderPassInfo.renderArea.extent = m_swapchain->getSwapChainExtent();
 
@@ -320,7 +320,8 @@ void VkSandboxRenderer::beginSwapChainRenderPass(FrameContext& frame)
     renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
     renderPassInfo.pClearValues = clearValues.data();
 
-    vkCmdBeginRenderPass(frame.primaryGraphicsCommandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+    vkCmdBeginRenderPass(cmd, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+
     VkViewport viewport{};
     viewport.x = 0.0f;
     viewport.y = 0.0f;
@@ -329,21 +330,20 @@ void VkSandboxRenderer::beginSwapChainRenderPass(FrameContext& frame)
     viewport.minDepth = 0.0f;
     viewport.maxDepth = 1.0f;
     VkRect2D scissor{ {0, 0}, m_swapchain->getSwapChainExtent() };
-    vkCmdSetViewport(frame.primaryGraphicsCommandBuffer, 0, 1, &viewport);
-    vkCmdSetScissor(frame.primaryGraphicsCommandBuffer, 0, 1, &scissor);
+    vkCmdSetViewport(cmd, 0, 1, &viewport);
+    vkCmdSetScissor(cmd, 0, 1, &scissor);
 }
 
 void VkSandboxRenderer::endSwapChainRenderPass(FrameContext& frame)
 {
-  
     assert(m_bIsFrameStarted && "Can't call endSwapChainRenderPass if frame is not in progress");
-    
+
     vkCmdEndRenderPass(frame.primaryGraphicsCommandBuffer);
 }
+
 void VkSandboxRenderer::createCommandBuffers() {
     size_t imageCount = m_swapchain->imageCount();
     m_commandBuffers.resize(imageCount);
-    //m_commandBuffers.resize(VkSandboxSwapchain::MAX_FRAMES_IN_FLIGHT);
 
     VkCommandBufferAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -359,7 +359,9 @@ void VkSandboxRenderer::createCommandBuffers() {
         throw std::runtime_error("failed to allocate command buffers!");
     }
 }
-void VkSandboxRenderer::recreateSwapchain() {
+
+
+void VkSandboxRenderer::createSwapChain() {
 
     auto extent = m_window.getExtent();
     glfwWaitEvents();
@@ -381,6 +383,11 @@ void VkSandboxRenderer::recreateSwapchain() {
             throw std::runtime_error("Swap chain image(or depth) format has changed");
         }
     }
+
+    m_swapchainImageLayouts.assign(m_swapchain->imageCount(), VK_IMAGE_LAYOUT_UNDEFINED);
+    m_depthImageLayouts.assign(m_swapchain->imageCount(), VK_IMAGE_LAYOUT_UNDEFINED);
+
+
     createCommandBuffers();
 }
 void VkSandboxRenderer::freeCommandBuffers() {

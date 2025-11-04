@@ -111,16 +111,9 @@ namespace Core {
                 auto& uboBuffer = m_renderer.getUboBuffers()[idx];
                 uboBuffer->writeToBuffer(&ubo);
                 uboBuffer->flush();
+                // main render graph pass
+                m_renderer.renderSystems(info, frame);
 
-                // Record/submit draw calls via renderer systems
-                m_renderer.beginSwapChainRenderPass(frame);
-                // Main scene geometry
-                m_renderer.renderSystems(info);
-                // Layers render UI / overlays on top
-                for (auto& layer : m_layers) {
-                    layer->onRender(frame);
-                }
-                m_renderer.endSwapChainRenderPass(frame);
                 m_renderer.endFrame(frame);
             }
             else {

@@ -132,7 +132,13 @@ void SkyboxIBLrenderSystem::render(FrameInfo& frameInfo) {
 		model->gltfDraw(frameInfo.commandBuffer);
 	}
 }
+void SkyboxIBLrenderSystem::record(const RGContext& rgctx, FrameInfo& frame) {
+	frame.commandBuffer = rgctx.cmd;
+	frame.frameIndex = rgctx.frameIndex;
+	frame.globalDescriptorSet = rgctx.globalSet;
 
+	this->render(frame);
+}
 
 void SkyboxIBLrenderSystem::createPipeline(VkRenderPass renderPass) {
 	assert(m_pipelineLayout != VK_NULL_HANDLE && "Pipeline layout must be created before pipeline");

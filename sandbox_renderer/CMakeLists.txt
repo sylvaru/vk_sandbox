@@ -3,11 +3,11 @@ add_library(sandbox_renderer STATIC)
 
 target_sources(sandbox_renderer
     PRIVATE
-         src/window.cpp
+         src/vulkan_wrapper/core/window.cpp
+         src/vulkan_wrapper/core/vulkan_renderer.cpp
          src/vk_tools/vk_tools.cpp 
          src/vulkan_wrapper/vulkan_instance.cpp
          src/vulkan_wrapper/vulkan_device.cpp
-         src/vulkan_wrapper/vulkan_renderer.cpp
          src/vulkan_wrapper/vulkan_swapchain.cpp
          src/vulkan_wrapper/vulkan_buffer.cpp
          src/vulkan_wrapper/vulkan_pipeline.cpp
@@ -20,6 +20,7 @@ target_sources(sandbox_renderer
          src/vulkan_wrapper/render_systems/point_light_rs.cpp
          src/vulkan_wrapper/render_systems/skybox_ibl_rs.cpp
          src/vulkan_wrapper/render_systems/scene_rs.cpp
+         src/vulkan_wrapper/core/render_graph.cpp
  )
 
 

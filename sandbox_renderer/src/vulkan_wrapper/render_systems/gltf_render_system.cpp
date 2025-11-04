@@ -236,3 +236,10 @@ void GltfRenderSystem::render(FrameInfo& frame) {
         }
     }
 }
+void GltfRenderSystem::record(const RGContext& rgctx, FrameInfo& frame) {
+    frame.commandBuffer = rgctx.cmd;
+    frame.frameIndex = rgctx.frameIndex;
+    frame.globalDescriptorSet = rgctx.globalSet;
+
+    this->render(frame);
+}

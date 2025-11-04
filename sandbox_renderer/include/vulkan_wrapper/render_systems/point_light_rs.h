@@ -3,7 +3,7 @@
 #include "vulkan_wrapper/vulkan_device.h"
 #include "vulkan_wrapper/vulkan_pipeline.h"
 #include <vulkan/vulkan.h>
-
+#include "vulkan_wrapper/core/render_graph.h"
 // STD
 #include <memory>
 #include <vector>
@@ -26,6 +26,7 @@ public:
 
 	void update(FrameInfo& frame, GlobalUbo& ubo) override;
 	void render(FrameInfo& frame) override;
+	void record(const RGContext& rgctx, FrameInfo& frame);
 private:
 	void createPipelineLayout(VkDescriptorSetLayout globalSetLayout);
 	void createPipeline(VkRenderPass renderPass);

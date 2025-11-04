@@ -130,7 +130,15 @@ void PointLightRS::render(FrameInfo& frame) {
         vkCmdDraw(frame.commandBuffer, 6, 1, 0, 0);
     }
 
-}void PointLightRS::update(FrameInfo& frame, GlobalUbo& ubo) {
+}
+void PointLightRS::record(const RGContext& rgctx, FrameInfo& frame) {
+    frame.commandBuffer = rgctx.cmd;
+    frame.frameIndex = rgctx.frameIndex;
+    frame.globalDescriptorSet = rgctx.globalSet;
+
+    this->render(frame);
+}
+void PointLightRS::update(FrameInfo& frame, GlobalUbo& ubo) {
     auto rotateLight = glm::rotate(glm::mat4(1.f), m_rotationSpeed * frame.frameTime, { 0.f, -1.f, 0.f });
 
     int lightIndex = 0;

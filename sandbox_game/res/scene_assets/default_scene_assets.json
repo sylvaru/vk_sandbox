@@ -13,7 +13,7 @@
     {
       "type": "gltf",
       "name": "cube",
-      "path": "gltf/cube_fixed.gltf",
+      "path": "gltf/env_cube.gltf",
       "usage": "skybox"
     }, 
     {

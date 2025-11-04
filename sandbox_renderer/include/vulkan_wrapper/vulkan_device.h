@@ -4,7 +4,7 @@
 #include <vector>
 
 #include "vk_tools/vk_tools.h"
-#include "window.h"
+#include "core/window.h"
 #include "vulkan_instance.h"
 
 struct SwapChainSupportDetails

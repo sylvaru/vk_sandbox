@@ -5,13 +5,23 @@
   "rotation": [ 0.0, 0.0, 0.0 ],
   "scale": [ 1.0, 1.0, 1.0 ],
   "skybox": true
+}, {
+  "name": "cerberus",
+  "model": "cerberus",
+  "renderSystem": "gltf",
+  "position": [ 10.0, 2.0, 0.0 ],
+  "rotation": [ 0.0, 5.0, 0.0 ],
+  "scale": [ 2.0, 2.0, 2.0 ]
 },
 
-         {
-      "name": "cerberus",
-      "model": "cerberus",
-      "renderSystem": "gltf",
-      "position": [ 10.0, 2.0, 0.0 ],
-      "rotation": [ 0.0, 5.0, 0.0 ],
-      "scale": [ 2.0, 2.0, 2.0 ]
+    {
+      "name": "quad",
+      "position": [ 0.0, 0.0, 0.0 ],
+      "rotation": [ -90.0, 0.0, 0.0 ],
+      "scale": [ 10.0, 10.0, 1.0 ],
+      "renderSystem": "obj"
     },
+
+
+,
+    

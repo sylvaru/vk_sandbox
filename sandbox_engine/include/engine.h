@@ -1,9 +1,9 @@
 #pragma once
 #include <memory>
-#include "window.h"
+#include "vulkan_wrapper/core/window.h"
+#include "vulkan_wrapper/core/vulkan_renderer.h"
 #include "vulkan_wrapper/vulkan_device.h"
 #include "vulkan_wrapper/vulkan_instance.h"
-#include "vulkan_wrapper/vulkan_renderer.h"
 #include "interfaces/game_layer_i.h"
 #include "interfaces/camera_i.h"
 #include "interfaces/window_input_i.h"

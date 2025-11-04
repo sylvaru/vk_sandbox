@@ -3,7 +3,7 @@
 #include "vk_tools/vk_init.h"
 #include <stdexcept>
 #include <array>
-
+#include <spdlog/spdlog.h>
 
 VkSandboxSwapchain::VkSandboxSwapchain(VkSandboxDevice& device, VkExtent2D extent)
     :   m_device{ device }, m_windowExtent{ extent } 
@@ -173,7 +173,7 @@ void VkSandboxSwapchain::createRenderPass()
     colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
     colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
     colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+    colorAttachment.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
     VkAttachmentReference colorAttachmentRef = {};
     colorAttachmentRef.attachment = 0;
@@ -291,20 +291,27 @@ void VkSandboxSwapchain::createDepthResources()
 }
 void VkSandboxSwapchain::createSyncObjects()
 {
+    size_t framesInFlight = MAX_FRAMES_IN_FLIGHT;
     size_t imageCount = m_swapChainImages.size();
 
-    // 1) Acquire semaphores & fences — one per frame in flight
-    m_imageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
-    m_inFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
-    m_imagesInFlight.resize(imageCount, VK_NULL_HANDLE);
+    // per-frame semaphores/fences
+    m_imageAvailableSemaphores.resize(framesInFlight);
+    m_inFlightFences.resize(framesInFlight);
+
+    // map image -> last fence that used it
+    m_imagesInFlight.assign(imageCount, VK_NULL_HANDLE);
+
+    // render-finished semaphores: one per swapchain image (prevents reuse while present is in-flight)
+    m_renderFinishedSemaphores.resize(imageCount);
 
     VkSemaphoreCreateInfo semInfo{};
     semInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
     VkFenceCreateInfo fenceInfo{};
     fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-    fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+    fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT; // so first frame doesn't wait forever
 
-    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+    // create per-frame image-available semaphores and fences
+    for (size_t i = 0; i < framesInFlight; ++i) {
         if (vkCreateSemaphore(m_device.device(), &semInfo, nullptr, &m_imageAvailableSemaphores[i]) != VK_SUCCESS ||
             vkCreateFence(m_device.device(), &fenceInfo, nullptr, &m_inFlightFences[i]) != VK_SUCCESS)
         {
@@ -312,14 +319,14 @@ void VkSandboxSwapchain::createSyncObjects()
         }
     }
 
-    // 2) Render-finished semaphores — one per swapchain image
-    m_renderFinishedSemaphores.resize(imageCount);
-    for (size_t i = 0; i < imageCount; i++) {
+    // create per-image render-finished semaphores
+    for (size_t i = 0; i < imageCount; ++i) {
         if (vkCreateSemaphore(m_device.device(), &semInfo, nullptr, &m_renderFinishedSemaphores[i]) != VK_SUCCESS) {
-            throw std::runtime_error("failed to create per-image render-finished semaphores!");
+            throw std::runtime_error("failed to create per-image render-finished semaphore!");
         }
     }
 }
+
 
 VkSurfaceFormatKHR VkSandboxSwapchain::chooseSwapSurfaceFormat(
     const std::vector<VkSurfaceFormatKHR>& availableFormats) {
@@ -379,49 +386,43 @@ VkFormat VkSandboxSwapchain::findDepthFormat()
         VK_IMAGE_TILING_OPTIMAL,
         VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
 }
-
 VkResult VkSandboxSwapchain::acquireNextImage(uint32_t* imageIndex)
 {
-    // Wait for the fence of the current frame first (prevents CPU running too fast)
+    // Wait for the current frame's fence to ensure the CPU doesn't get ahead of GPU for this frame
     vkWaitForFences(m_device.device(), 1, &m_inFlightFences[m_currentFrame], VK_TRUE, UINT64_MAX);
 
     VkResult result = vkAcquireNextImageKHR(
         m_device.device(),
         m_swapChain,
         UINT64_MAX,
-        m_imageAvailableSemaphores[m_currentFrame],  // signal semaphore
+        m_imageAvailableSemaphores[m_currentFrame], // per-frame available semaphore
         VK_NULL_HANDLE,
         imageIndex);
 
-    if (result == VK_ERROR_OUT_OF_DATE_KHR) {
-        // Swapchain needs to be recreated - handle outside
-        return result;
-    }
-    else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
+    if (result == VK_ERROR_OUT_OF_DATE_KHR) return result;
+    else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR)
         throw std::runtime_error("failed to acquire swap chain image!");
-    }
 
-    // If the image we acquired is already being used (fence not signaled), wait for it
+    // If a previous frame is still using this image, wait for that frame to finish
     if (m_imagesInFlight[*imageIndex] != VK_NULL_HANDLE) {
         vkWaitForFences(m_device.device(), 1, &m_imagesInFlight[*imageIndex], VK_TRUE, UINT64_MAX);
     }
 
-    // Mark this image as now being in use by current frame
+    // Mark this image as now being in use by the current in-flight fence
     m_imagesInFlight[*imageIndex] = m_inFlightFences[m_currentFrame];
 
     return result;
 }
-
-
 VkResult VkSandboxSwapchain::submitCommandBuffers(const VkCommandBuffer* buffers, uint32_t* imageIndex)
 {
-    // Use currentFrame to access per-frame sync objects
+    // Wait & reset the frame fence for this frame slot
     vkWaitForFences(m_device.device(), 1, &m_inFlightFences[m_currentFrame], VK_TRUE, UINT64_MAX);
     vkResetFences(m_device.device(), 1, &m_inFlightFences[m_currentFrame]);
 
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
+    // Wait on the image-available semaphore for this frame
     VkSemaphore waitSemaphores[] = { m_imageAvailableSemaphores[m_currentFrame] };
     VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
     submitInfo.waitSemaphoreCount = 1;
@@ -431,14 +432,18 @@ VkResult VkSandboxSwapchain::submitCommandBuffers(const VkCommandBuffer* buffers
     submitInfo.commandBufferCount = 1;
     submitInfo.pCommandBuffers = buffers;
 
+    // Signal the render-finished semaphore for this specific swapchain image
     VkSemaphore signalSemaphores[] = { m_renderFinishedSemaphores[*imageIndex] };
     submitInfo.signalSemaphoreCount = 1;
     submitInfo.pSignalSemaphores = signalSemaphores;
 
-    if (vkQueueSubmit(m_device.graphicsQueue(), 1, &submitInfo, m_inFlightFences[m_currentFrame]) != VK_SUCCESS) {
-        throw std::runtime_error("failed to submit draw command buffer!");
+    // Submit with the per-frame fence
+    VkResult submitRes = vkQueueSubmit(m_device.graphicsQueue(), 1, &submitInfo, m_inFlightFences[m_currentFrame]);
+    if (submitRes != VK_SUCCESS) {
+        spdlog::error("[SWAPCHAIN] vkQueueSubmit failed: {}", (int)submitRes);
     }
 
+    // Present -- wait specifically on the render-finished semaphore for this image
     VkPresentInfoKHR presentInfo{};
     presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
     presentInfo.waitSemaphoreCount = 1;
@@ -447,9 +452,16 @@ VkResult VkSandboxSwapchain::submitCommandBuffers(const VkCommandBuffer* buffers
     presentInfo.pSwapchains = &m_swapChain;
     presentInfo.pImageIndices = imageIndex;
 
-    VkResult result = vkQueuePresentKHR(m_device.presentQueue(), &presentInfo);
+    VkResult presentRes = vkQueuePresentKHR(m_device.presentQueue(), &presentInfo);
+    if (presentRes != VK_SUCCESS && presentRes != VK_SUBOPTIMAL_KHR) {
+        spdlog::warn("[SWAPCHAIN] vkQueuePresentKHR returned {}", (int)presentRes);
+    }
 
+    // advance frame slot (frame in flight)
     m_currentFrame = (m_currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 
-    return result;
+    return presentRes;
 }
+
+
+

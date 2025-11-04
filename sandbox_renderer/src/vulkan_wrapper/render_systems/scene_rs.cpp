@@ -196,3 +196,11 @@ void SceneRenderSystem::render(FrameInfo& frame) {
         }
     }
 }
+
+void SceneRenderSystem::record(const RGContext& rgctx, FrameInfo& frame) {
+    frame.commandBuffer = rgctx.cmd;
+    frame.frameIndex = rgctx.frameIndex;
+    frame.globalDescriptorSet = rgctx.globalSet;
+
+    this->render(frame);
+}

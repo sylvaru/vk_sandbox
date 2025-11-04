@@ -1,7 +1,7 @@
 #pragma once
 #include "interfaces/window_input_i.h"
 #include "GLFW/glfw3.h"
-#include "window.h"
+#include "vulkan_wrapper/core/window.h"
 
 
 class GLFWWindowInput : public IWindowInput {

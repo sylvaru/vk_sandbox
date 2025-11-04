@@ -7,6 +7,7 @@
 #include <cassert>
 #include "vulkan_wrapper/vulkan_device.h"
 
+struct FrameInfo;
 
 
 struct RGContext {
@@ -16,7 +17,7 @@ struct RGContext {
 
     // You can add global sets/UBOs if you want them accessible to passes
     VkDescriptorSet  globalSet = VK_NULL_HANDLE;
-    // ... add more as needed
+    FrameInfo* frame = nullptr;
 };
 
 // Logical resource handle
@@ -62,6 +63,8 @@ public:
 
     // Resource creation
     RGHandle importExternal(const std::string& name);
+    RGHandle importExternal(const std::string& name, VkImage image, VkImageView view, VkImageLayout layout = VK_IMAGE_LAYOUT_UNDEFINED);
+   
     RGHandle createTransient(const std::string& name);
 
     // Pass creation
@@ -74,6 +77,10 @@ public:
         PassBuilder& write(RGHandle res, RGUsage usage);
         PassBuilder& setExecute(std::function<void(const RGContext&)> fn);
     };
+
+    void emitPreBarriers(const RGContext& ctx);
+    void executePasses(const RGContext& ctx);
+    void emitPostBarriers(const RGContext& ctx);
 
     PassBuilder addPass(const std::string& name);
 

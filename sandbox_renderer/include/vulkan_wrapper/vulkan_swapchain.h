@@ -32,7 +32,9 @@ public:
     VkExtent2D getSwapChainExtent() { return m_swapChainExtent; }
     uint32_t width() { return m_swapChainExtent.width; }
     uint32_t height() { return m_swapChainExtent.height; }
-
+    VkImage getImage(size_t index) const { return m_swapChainImages.at(index); }
+    VkImage getDepthImage(size_t index) const { return m_depthImages.at(index); }
+    VkImageView getDepthImageView(size_t index) const { return m_depthImageViews.at(index); }
     static constexpr int GetMaxFramesInFlight(){ return MAX_FRAMES_IN_FLIGHT; }
 
     VkResult acquireNextImage(uint32_t* imageIndex);

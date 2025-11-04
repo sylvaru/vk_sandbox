@@ -9,8 +9,9 @@
 #include "vulkan_wrapper/vulkan_descriptor.h"
 
 #include "vulkan_wrapper/vulkan_gltf.h"
-#include "vulkan_wrapper/vulkan_renderer.h"
+#include "vulkan_wrapper/core/vulkan_renderer.h"
 #include "vulkan_wrapper/render_systems/gltf_render_system.h"
+#include "vulkan_wrapper/core/render_graph.h"
 
 // STD
 #include <memory>
@@ -45,7 +46,7 @@ public:
 		size_t frameCount);
 
 	void render(FrameInfo& frame) override;
-
+	void record(const RGContext& rgctx, FrameInfo& frame);
 
 private:
 	void createPipelineLayout(VkDescriptorSetLayout globalSetLayout);
