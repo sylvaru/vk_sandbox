@@ -17,6 +17,10 @@
 #include "vulkan_wrapper/vulkan_buffer.h"
 #include <vector>
 #include <array>
+#include "imgui.h"
+#include "backends/imgui_impl_vulkan.h"
+#include "backends/imgui_impl_glfw.h"
+
 
 class GltfRenderSystem;
 class PointLightRS;
@@ -50,6 +54,12 @@ public:
 	void waitDeviceIdle() override;
 
 	void updateSystems(FrameInfo& frame, GlobalUbo& ubo, float deltaTime)override;
+
+	void initImGui(VkInstance instance, VkPhysicalDevice physicalDevice, VkDevice device, VkQueue graphicsQueue, uint32_t queueFamily);
+	void shutdownImGui();
+
+	void beginImGuiFrame();
+	void renderImGui(FrameContext& frame);
 	
 	// Inline helpers
 	inline VkRenderPass getSwapChainRenderPass() const { return m_swapchain->getRenderPass(); }
@@ -72,7 +82,7 @@ public:
 	inline const std::vector<std::unique_ptr<VkSandboxBuffer>>& getUboBuffers() const {
 		return m_uboBuffers;
 	}
-
+	bool isImGuiInitialized() const { return m_imguiInitialized; }
 
 	std::unique_ptr<VkSandboxDescriptorPool>                      m_pool;
 private:
@@ -93,7 +103,7 @@ private:
 	std::shared_ptr<VkSandboxSwapchain>					  m_oldSwapchain;
 	VkInstance												  m_instance = VK_NULL_HANDLE;
 	
-	uint32_t								      m_width{ 0 }, m_height{ 0 };
+	uint32_t								 m_width{ 0 }, m_height{ 0 };
 	std::vector<std::unique_ptr<VkSandboxBuffer>>			m_uboBuffers;
 	std::vector<VkDescriptorSet>				  m_globalDescriptorSets;
 	std::vector<VkFence>							    m_inFlightFences;
@@ -106,6 +116,9 @@ private:
 	std::unique_ptr<PointLightRS>					  m_pointLightSystem;
 	std::unique_ptr<SceneRenderSystem>					   m_sceneSystem;
 
+
+
+
 	void createGlobalDescriptorObjects();
 	void allocateGlobalDescriptors();
 	
@@ -113,7 +126,12 @@ private:
 	void createSwapChain();
 	void createCommandBuffers();
 	void freeCommandBuffers();
-	//void recreateSwapchain();
 
+	// imgui 
+	bool m_imguiInitialized = false;
+	VkDescriptorPool m_imguiDescriptorPool = VK_NULL_HANDLE;
 
+	VkDescriptorPool create_imgui_descriptor_pool(VkDevice device);
+	VkCommandBuffer createSingleUseCommandBuffer();
+	void flushAndSubmitSingleUseCommandBuffer(VkCommandBuffer cmd);
 };

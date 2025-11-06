@@ -1,0 +1,11 @@
+Model Information:
+* title:	Forest falls
+* source:	https://sketchfab.com/3d-models/forest-falls-bcb2d9e973954566b2a176fb58de7416
+* author:	Pasha (https://sketchfab.com/Pasha.)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Forest falls" (https://sketchfab.com/3d-models/forest-falls-bcb2d9e973954566b2a176fb58de7416) by Pasha (https://sketchfab.com/Pasha.) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

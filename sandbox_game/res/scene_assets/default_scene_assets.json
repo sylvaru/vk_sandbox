@@ -20,6 +20,11 @@
       "type": "gltf",
       "name": "sponza",
       "path": "gltf/sponza/sponza.gltf"
+    },
+    {
+      "type": "gltf",
+      "name": "deagle",
+      "path": "gltf/Deagle/scene.gltf"
     }
   ],
   "cubemaps": [

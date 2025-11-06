@@ -45,6 +45,9 @@ public:
     VkSurfaceKHR surface() { return m_surface; }
     VkQueue graphicsQueue() { return m_graphicsQueue; }
     VkQueue presentQueue() { return m_presentQueue; }
+    uint32_t graphicsQueueFamilyIndex() const { return m_queueFamilyIndices.graphicsFamily; }
+    VkPhysicalDevice physicalDevice() const { return m_physicalDevice; }
+
 
     SwapChainSupportDetails getSwapChainSupport() { return querySwapChainSupport(m_physicalDevice); }
     uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
@@ -143,6 +146,7 @@ private:
     VkSurfaceKHR m_surface;
     VkQueue m_graphicsQueue;
     VkQueue m_presentQueue;
+    QueueFamilyIndices m_queueFamilyIndices;
 
 
     const std::vector<const char*> m_deviceExtensions = {

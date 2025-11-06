@@ -44,7 +44,7 @@ namespace Core {
         // Initialize all layers
         for (auto& layer : m_layers) {
             layer->onInit();
-            // If layer has a scene, initialize renderer systems for it (if necessary)
+            // If layer has a scene, initialize renderer systems for it
             if (IScene* s = layer->getSceneInterface()) {
                 m_renderer.initializeSystems(m_assetManager, *s);
             }
@@ -64,11 +64,10 @@ namespace Core {
             };
 
         while (!m_windowInput->isWindowShouldClose()) {
-            // Events & input
+
             m_windowInput->pollEvents();
             processInput();
 
-            // Delta time
             auto now = clock::now();
             double deltaTime = duration_t(now - lastTime).count();
             lastTime = now;
@@ -80,11 +79,10 @@ namespace Core {
 
             // Select scene & camera to render from
             IScene* scene = pickTopScene();
+            ICamera& cam = scene->getCamera();
 
             // If we have a scene, prepare the renderer + systems using scene data
             if (scene) {
-                ICamera& cam = scene->getCamera();
-
                 // Build frame info
                 ISandboxRenderer::FrameContext frame = m_renderer.beginFrame();
                 if (!frame.isValid()) break;
@@ -111,10 +109,24 @@ namespace Core {
                 auto& uboBuffer = m_renderer.getUboBuffers()[idx];
                 uboBuffer->writeToBuffer(&ubo);
                 uboBuffer->flush();
-                // main render graph pass
+
+                for (auto& layer : m_layers) {
+                    layer->onRender(frame);
+                }
+
+                // Main render graph sequence
                 m_renderer.renderSystems(info, frame);
 
+
+                if (m_renderer.isImGuiInitialized()) {
+                    ImGui::UpdatePlatformWindows();
+                    ImGui::RenderPlatformWindowsDefault();
+                }
+
                 m_renderer.endFrame(frame);
+
+
+           
             }
             else {
                 // No scene: still allow layers to render (UI-only apps)

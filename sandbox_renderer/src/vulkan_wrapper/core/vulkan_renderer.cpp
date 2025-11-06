@@ -29,7 +29,6 @@ void VkSandboxRenderer::createGlobalDescriptorObjects() {
         .setPoolFlags(VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT)
         .build();
 
-    // === global UBO layout (set=0) ===
     m_globalLayout = VkSandboxDescriptorSetLayout::Builder{ m_device }
         .addBinding(0,
             VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
@@ -55,13 +54,13 @@ void VkSandboxRenderer::allocateGlobalDescriptors() {
     for (uint32_t i = 0; i < FrameCount; i++) {
         auto bufInfo = m_uboBuffers[i]->descriptorInfo();
         VkDescriptorSet set;
-        // allocate
+
         if (!m_pool->allocateDescriptor(
                 m_globalLayout->getDescriptorSetLayout(),
                 set, 0)) {
             throw std::runtime_error("Failed to allocate global descriptor set");
         }
-        // write
+
         VkSandboxDescriptorWriter(*m_globalLayout, *m_pool)
             .writeBuffer(0, &bufInfo)
             .build(set);
@@ -106,8 +105,7 @@ void VkSandboxRenderer::initializeSystems(
 
             m_skyboxSystem->setCubemapTexture(cubemapDesc);
             m_skyboxSystem->m_bHasCubemap = true;
-            m_skyboxSystem->init(
-                m_device, rp, globalLayout, pool);
+            m_skyboxSystem->init(m_device, rp, globalLayout, pool);
         }
         catch (const std::exception& e) {
             spdlog::warn("Skybox cubemap '{}' not found: {}", cubemapName, e.what());
@@ -139,12 +137,6 @@ void VkSandboxRenderer::initializeSystems(
         globalLayout,
         provider
     );
-
-    //m_systems.push_back(std::make_unique<ObjRenderSystem>(
-    //    m_device,
-    //    rp,
-    //    globalLayout
-    //));
 
 }
 void VkSandboxRenderer::updateSystems(FrameInfo& frame, GlobalUbo& ubo, float deltaTime)
@@ -223,19 +215,22 @@ void VkSandboxRenderer::renderSystems(FrameInfo& info, FrameContext& frame) {
                 });
     }
 
+    graph.addPass("ImGui")
+        .write(color, RGUsage::WriteColor)
+        .setExecute([this](const RGContext& ctx) {
+            ImGui::Render();
+            ImDrawData* draw_data = ImGui::GetDrawData();
+            if (draw_data && draw_data->CmdListsCount > 0) {
+                ImGui_ImplVulkan_RenderDrawData(draw_data, ctx.cmd);
+            }
+            });
+
     graph.compile();
     graph.emitPreBarriers(rgCtx);
-
-    ISandboxRenderer::FrameContext localRenderCtx = frame;
-    localRenderCtx.primaryGraphicsCommandBuffer = rgCtx.cmd;
-    beginSwapChainRenderPass(localRenderCtx);
-
+    beginSwapChainRenderPass(frame);
     graph.executePasses(rgCtx);
-
-    endSwapChainRenderPass(localRenderCtx);
-
+    endSwapChainRenderPass(frame);
     graph.emitPostBarriers(rgCtx);
-
 }
 
 
@@ -387,7 +382,6 @@ void VkSandboxRenderer::createSwapChain() {
     m_swapchainImageLayouts.assign(m_swapchain->imageCount(), VK_IMAGE_LAYOUT_UNDEFINED);
     m_depthImageLayouts.assign(m_swapchain->imageCount(), VK_IMAGE_LAYOUT_UNDEFINED);
 
-
     createCommandBuffers();
 }
 void VkSandboxRenderer::freeCommandBuffers() {
@@ -403,6 +397,138 @@ void VkSandboxRenderer::freeCommandBuffers() {
     m_commandBuffers.clear();
 }
 
+
+VkCommandBuffer VkSandboxRenderer::createSingleUseCommandBuffer() {
+    VkCommandBufferAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    allocInfo.commandPool = m_commandPool;
+    allocInfo.commandBufferCount = 1;
+
+    VkCommandBuffer cmd;
+    vkAllocateCommandBuffers(m_device.device(), &allocInfo, &cmd);
+
+    VkCommandBufferBeginInfo beginInfo{};
+    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+    vkBeginCommandBuffer(cmd, &beginInfo);
+
+    return cmd;
+}
+
+void VkSandboxRenderer::flushAndSubmitSingleUseCommandBuffer(VkCommandBuffer cmd) {
+    vkEndCommandBuffer(cmd);
+
+    VkSubmitInfo submitInfo{};
+    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &cmd;
+
+    vkQueueSubmit(m_device.graphicsQueue(), 1, &submitInfo, VK_NULL_HANDLE);
+    vkQueueWaitIdle(m_device.graphicsQueue());
+
+    vkFreeCommandBuffers(m_device.device(), m_commandPool, 1, &cmd);
+}
+
 void VkSandboxRenderer::waitDeviceIdle() {
     vkDeviceWaitIdle(m_device.device());
 }
+
+
+// Imgui stuff
+void VkSandboxRenderer::initImGui(
+    VkInstance instance,
+    VkPhysicalDevice physicalDevice,
+    VkDevice device,
+    VkQueue graphicsQueue,
+    uint32_t queueFamily)
+{
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+
+    ImGuiIO& io = ImGui::GetIO();
+    //io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+    io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
+    ImGui::StyleColorsDark();
+
+
+    m_imguiDescriptorPool = create_imgui_descriptor_pool(device);
+
+    ImGui_ImplGlfw_InitForVulkan(m_window.getGLFWwindow(), true);
+
+    ImGui_ImplVulkan_InitInfo init_info{};
+    init_info.Instance = instance;
+    init_info.PhysicalDevice = physicalDevice;
+    init_info.Device = device;
+    init_info.QueueFamily = queueFamily;
+    init_info.Queue = graphicsQueue;
+    init_info.DescriptorPool = m_imguiDescriptorPool;
+    init_info.MinImageCount = FrameCount;
+    init_info.ImageCount = FrameCount;
+    //init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
+    init_info.Allocator = nullptr;
+
+
+    ImGui_ImplVulkan_Init(&init_info);
+    ImGui_ImplVulkan_PipelineInfo pipeline_info{};
+    pipeline_info.RenderPass = m_swapchain->getRenderPass();
+    pipeline_info.Subpass = 0;
+    ImGui_ImplVulkan_CreateMainPipeline(&pipeline_info);
+
+    m_imguiInitialized = true;
+}
+
+
+void VkSandboxRenderer::beginImGuiFrame() {
+    if (!m_imguiInitialized) return;
+
+    ImGui_ImplVulkan_NewFrame();
+    ImGui_ImplGlfw_NewFrame();
+    ImGui::NewFrame();
+}
+
+void VkSandboxRenderer::renderImGui(FrameContext& frame) {
+    if (!m_imguiInitialized) return;
+    ImGui::Render();
+    ImDrawData* draw_data = ImGui::GetDrawData();
+    ImGui_ImplVulkan_RenderDrawData(draw_data, frame.primaryGraphicsCommandBuffer);
+}
+
+void VkSandboxRenderer::shutdownImGui() {
+    if (!m_imguiInitialized) return;
+
+    vkDestroyDescriptorPool(m_device.device(), m_imguiDescriptorPool, nullptr);
+    ImGui_ImplVulkan_Shutdown();
+    ImGui_ImplGlfw_Shutdown();
+    ImGui::DestroyContext();
+    m_imguiInitialized = false;
+}
+
+VkDescriptorPool VkSandboxRenderer::create_imgui_descriptor_pool(VkDevice device) {
+    std::array<VkDescriptorPoolSize, 11> poolSizes = {};
+    poolSizes[0] = VkDescriptorPoolSize{ VK_DESCRIPTOR_TYPE_SAMPLER, 1000 };
+    poolSizes[1] = VkDescriptorPoolSize{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000 };
+    poolSizes[2] = VkDescriptorPoolSize{ VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1000 };
+    poolSizes[3] = VkDescriptorPoolSize{ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1000 };
+    poolSizes[4] = VkDescriptorPoolSize{ VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1000 };
+    poolSizes[5] = VkDescriptorPoolSize{ VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1000 };
+    poolSizes[6] = VkDescriptorPoolSize{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1000 };
+    poolSizes[7] = VkDescriptorPoolSize{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1000 };
+    poolSizes[8] = VkDescriptorPoolSize{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000 };
+    poolSizes[9] = VkDescriptorPoolSize{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000 };
+    poolSizes[10] = VkDescriptorPoolSize{ VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1000 };
+
+    VkDescriptorPoolCreateInfo pool_info = {};
+    pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    pool_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+    pool_info.maxSets = 1000 * static_cast<uint32_t>(poolSizes.size());
+    pool_info.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
+    pool_info.pPoolSizes = poolSizes.data();
+
+    VkDescriptorPool descriptorPool = VK_NULL_HANDLE;
+    if (vkCreateDescriptorPool(device, &pool_info, nullptr, &descriptorPool) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create ImGui descriptor pool");
+    }
+    return descriptorPool;
+}
+

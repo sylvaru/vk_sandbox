@@ -21,6 +21,7 @@ public:
 	void resetWindowResizedFlag() { m_bFramebufferResized = false; }
 	GLFWwindow* getGLFWwindow() const { return m_pwindow; }
 
+
 	void createSurface(VkInstance instance, VkSurfaceKHR* surface) const;
 private:
 	void initWindow();
@@ -32,6 +33,7 @@ private:
 	GLFWwindow*  m_pwindow = nullptr;
 
 };
+
 
 struct WindowUserData {
 	SandboxWindow* window = nullptr;

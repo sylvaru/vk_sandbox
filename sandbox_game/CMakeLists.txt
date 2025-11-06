@@ -4,7 +4,8 @@ add_executable(sandbox_game)
 target_sources(sandbox_game
     PRIVATE
         src/main.cpp
-        src/game/game_layer.cpp
+        src/layers/game_layer.cpp
+        src/layers/imgui_layer.cpp
         src/input/player_input.cpp
         src/entities/player.cpp 
         src/entities/game_object.cpp 

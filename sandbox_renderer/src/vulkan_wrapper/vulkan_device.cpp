@@ -55,10 +55,10 @@ void VkSandboxDevice::createSurface() {
     m_window.createSurface(m_instance.instance(), &m_surface);
 }
 void VkSandboxDevice::createLogicalDevice() {
-    QueueFamilyIndices indices = findQueueFamilies(m_physicalDevice);
+    m_queueFamilyIndices = findQueueFamilies(m_physicalDevice);
 
     std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
-    std::set<uint32_t> uniqueQueueFamilies = { indices.graphicsFamily, indices.presentFamily };
+    std::set<uint32_t> uniqueQueueFamilies = { m_queueFamilyIndices.graphicsFamily, m_queueFamilyIndices.presentFamily };
 
     float queuePriority = 1.0f;
     for (uint32_t queueFamily : uniqueQueueFamilies) {
@@ -110,8 +110,8 @@ void VkSandboxDevice::createLogicalDevice() {
         throw std::runtime_error("failed to create logical device!");
     }
 
-    vkGetDeviceQueue(m_logicalDevice, indices.graphicsFamily, 0, &m_graphicsQueue);
-    vkGetDeviceQueue(m_logicalDevice, indices.presentFamily, 0, &m_presentQueue);
+    vkGetDeviceQueue(m_logicalDevice, m_queueFamilyIndices.graphicsFamily, 0, &m_graphicsQueue);
+    vkGetDeviceQueue(m_logicalDevice, m_queueFamilyIndices.presentFamily, 0, &m_presentQueue);
 }
 
 void VkSandboxDevice::createCommandPool() {

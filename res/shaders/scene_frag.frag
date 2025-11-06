@@ -30,6 +30,24 @@ layout(set = 0, binding = 0) uniform GlobalUbo {
     int numLights;
 } ubo;
 
+
+
+// --- Configurable constants (tweak freely) ---
+const bool  USE_ALPHA_MASK = false;
+
+const float METALLIC_VALUE  = 0.1;
+const float ROUGHNESS_VALUE = 0.6;
+const float AO_VALUE        = 1.0;
+const bool  FLIP_ENV_MAP_Y  = true;
+
+// --- Helpers ---
+vec3 linearToSrgb(vec3 c) { return pow(c, vec3(1.0/2.2)); }
+vec3 fresnelSchlick(float cosTheta, vec3 F0) {
+    return F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0);
+}
+
+
+
 void main() {
     vec4 texColor = texture(materialSampler, inUV) * inColor;
 

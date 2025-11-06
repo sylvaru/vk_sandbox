@@ -15,7 +15,6 @@ struct RGContext {
     VkCommandBuffer  cmd = VK_NULL_HANDLE;
     uint32_t         frameIndex = 0;
 
-    // You can add global sets/UBOs if you want them accessible to passes
     VkDescriptorSet  globalSet = VK_NULL_HANDLE;
     FrameInfo* frame = nullptr;
 };
@@ -37,8 +36,7 @@ inline bool    Any(RGUsage u, RGUsage bits) { return (uint32_t(u) & uint32_t(bit
 
 struct RGResourceDesc {
     std::string name;
-    // In v1 these are logical only; in v2 you can add format, extent, etc.
-    bool external = false; // swapchain/depth external
+    bool external = false;
     VkImage        image = VK_NULL_HANDLE;  // only for external resources
     VkImageLayout  layout = VK_IMAGE_LAYOUT_UNDEFINED;  // track current layout
 };
@@ -68,7 +66,6 @@ public:
     RGHandle createTransient(const std::string& name);
 
     // Pass creation
-    // Usage: auto pass = graph.addPass("GltfPbr"); pass.read(color, RGUsage::WriteColor) ... ; pass.setExecute(...)
     struct PassBuilder {
         RGPass& pass;
         RenderGraph& graph;
@@ -96,6 +93,5 @@ private:
     std::vector<RGResourceDesc> m_resources;
     std::vector<RGPass>         m_passes;
 
-    // compiled order (indices into m_passes)
     std::vector<uint32_t>       m_execOrder;
 };

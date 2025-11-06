@@ -29,43 +29,6 @@ void VkSandboxSwapchain::init()
     createSyncObjects();
 }
 
-VkSandboxSwapchain::~VkSandboxSwapchain() {
-    // Image views
-    for (VkImageView iv : m_swapChainImageViews) {
-        vkDestroyImageView(m_device.device(), iv, nullptr);
-    }
-    m_swapChainImageViews.clear();
-
-    // Depth resources
-    for (size_t i = 0; i < m_depthImages.size(); i++) {
-        vkDestroyImageView(m_device.device(), m_depthImageViews[i], nullptr);
-        vkDestroyImage(m_device.device(), m_depthImages[i], nullptr);
-        vkFreeMemory(m_device.device(), m_depthImageMemory[i], nullptr);
-    }
-
-    // Framebuffers
-    for (VkFramebuffer fb : m_swapChainFramebuffers) {
-        vkDestroyFramebuffer(m_device.device(), fb, nullptr);
-    }
-    m_swapChainFramebuffers.clear();
-
-    // Render pass
-    vkDestroyRenderPass(m_device.device(), m_renderPass, nullptr);
-
-    // Swapchain
-    if (m_swapChain != VK_NULL_HANDLE) {
-        vkDestroySwapchainKHR(m_device.device(), m_swapChain, nullptr);
-        m_swapChain = VK_NULL_HANDLE;
-    }
-    // Semaphores and fences
-    for (VkSemaphore sem : m_imageAvailableSemaphores)
-        vkDestroySemaphore(m_device.device(), sem, nullptr);
-    for (VkSemaphore sem : m_renderFinishedSemaphores)
-        vkDestroySemaphore(m_device.device(), sem, nullptr);
-    for (VkFence fence : m_inFlightFences)
-        vkDestroyFence(m_device.device(), fence, nullptr);
-}
-
 void VkSandboxSwapchain::createSwapChain() {
     SwapChainSupportDetails swapChainSupport = m_device.getSwapChainSupport();
 
@@ -327,65 +290,6 @@ void VkSandboxSwapchain::createSyncObjects()
     }
 }
 
-
-VkSurfaceFormatKHR VkSandboxSwapchain::chooseSwapSurfaceFormat(
-    const std::vector<VkSurfaceFormatKHR>& availableFormats) {
-    for (const auto& availableFormat : availableFormats) {
-        // SRGB can be changed to "UNORM" instead
-        if (availableFormat.format == VK_FORMAT_B8G8R8A8_SRGB &&
-            availableFormat.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
-            return availableFormat;
-        }
-    }
-
-    return availableFormats[0];
-}
-
-VkPresentModeKHR VkSandboxSwapchain::chooseSwapPresentMode(
-    const std::vector<VkPresentModeKHR>& availablePresentModes) {
-    for (const auto& availablePresentMode : availablePresentModes) {
-        if (availablePresentMode == VK_PRESENT_MODE_MAILBOX_KHR) {
-            std::cout << "Present mode: Mailbox" << std::endl;
-            return availablePresentMode;
-        }
-    }
-
-    // for (const auto &availablePresentMode : availablePresentModes) {
-    //   if (availablePresentMode == VK_PRESENT_MODE_IMMEDIATE_KHR) {
-    //     std::cout << "Present mode: Immediate" << std::endl;
-    //     return availablePresentMode;
-    //   }
-    // }
-
-    std::cout << "Present mode: V-Sync" << std::endl;
-    return VK_PRESENT_MODE_FIFO_KHR;
-}
-
-VkExtent2D VkSandboxSwapchain::chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities)
-{
-    if (capabilities.currentExtent.width != std::numeric_limits<uint32_t>::max()) {
-        return capabilities.currentExtent;
-    }
-    else {
-        VkExtent2D actualExtent = m_windowExtent;
-        actualExtent.width = std::max(
-            capabilities.minImageExtent.width,
-            std::min(capabilities.maxImageExtent.width, actualExtent.width));
-        actualExtent.height = std::max(
-            capabilities.minImageExtent.height,
-            std::min(capabilities.maxImageExtent.height, actualExtent.height));
-
-        return actualExtent;
-    }
-}
-
-VkFormat VkSandboxSwapchain::findDepthFormat()
-{
-    return m_device.findSupportedFormat(
-        { VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT },
-        VK_IMAGE_TILING_OPTIMAL,
-        VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
-}
 VkResult VkSandboxSwapchain::acquireNextImage(uint32_t* imageIndex)
 {
     // Wait for the current frame's fence to ensure the CPU doesn't get ahead of GPU for this frame
@@ -464,4 +368,101 @@ VkResult VkSandboxSwapchain::submitCommandBuffers(const VkCommandBuffer* buffers
 }
 
 
+
+
+
+
+VkSandboxSwapchain::~VkSandboxSwapchain() {
+    // Image views
+    for (VkImageView iv : m_swapChainImageViews) {
+        vkDestroyImageView(m_device.device(), iv, nullptr);
+    }
+    m_swapChainImageViews.clear();
+
+    // Depth resources
+    for (size_t i = 0; i < m_depthImages.size(); i++) {
+        vkDestroyImageView(m_device.device(), m_depthImageViews[i], nullptr);
+        vkDestroyImage(m_device.device(), m_depthImages[i], nullptr);
+        vkFreeMemory(m_device.device(), m_depthImageMemory[i], nullptr);
+    }
+
+    // Framebuffers
+    for (VkFramebuffer fb : m_swapChainFramebuffers) {
+        vkDestroyFramebuffer(m_device.device(), fb, nullptr);
+    }
+    m_swapChainFramebuffers.clear();
+
+    // Render pass
+    vkDestroyRenderPass(m_device.device(), m_renderPass, nullptr);
+
+    // Swapchain
+    if (m_swapChain != VK_NULL_HANDLE) {
+        vkDestroySwapchainKHR(m_device.device(), m_swapChain, nullptr);
+        m_swapChain = VK_NULL_HANDLE;
+    }
+    // Semaphores and fences
+    for (VkSemaphore sem : m_imageAvailableSemaphores)
+        vkDestroySemaphore(m_device.device(), sem, nullptr);
+    for (VkSemaphore sem : m_renderFinishedSemaphores)
+        vkDestroySemaphore(m_device.device(), sem, nullptr);
+    for (VkFence fence : m_inFlightFences)
+        vkDestroyFence(m_device.device(), fence, nullptr);
+}
+
+
+// Helper:
+
+
+
+VkSurfaceFormatKHR VkSandboxSwapchain::chooseSwapSurfaceFormat(
+    const std::vector<VkSurfaceFormatKHR>& availableFormats) {
+    for (const auto& availableFormat : availableFormats) {
+        // SRGB can be changed to "UNORM" instead
+        if (availableFormat.format == VK_FORMAT_B8G8R8A8_SRGB &&
+            availableFormat.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
+            return availableFormat;
+        }
+    }
+
+    return availableFormats[0];
+}
+
+VkPresentModeKHR VkSandboxSwapchain::chooseSwapPresentMode(
+    const std::vector<VkPresentModeKHR>& availablePresentModes) {
+    for (const auto& availablePresentMode : availablePresentModes) {
+        if (availablePresentMode == VK_PRESENT_MODE_MAILBOX_KHR) {
+            std::cout << "Present mode: Mailbox" << std::endl;
+            return availablePresentMode;
+        }
+    }
+
+    std::cout << "Present mode: V-Sync" << std::endl;
+    return VK_PRESENT_MODE_FIFO_KHR;
+}
+
+VkExtent2D VkSandboxSwapchain::chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities)
+{
+    if (capabilities.currentExtent.width != std::numeric_limits<uint32_t>::max()) {
+        return capabilities.currentExtent;
+    }
+    else {
+        VkExtent2D actualExtent = m_windowExtent;
+        actualExtent.width = std::max(
+            capabilities.minImageExtent.width,
+            std::min(capabilities.maxImageExtent.width, actualExtent.width));
+        actualExtent.height = std::max(
+            capabilities.minImageExtent.height,
+            std::min(capabilities.maxImageExtent.height, actualExtent.height));
+
+        return actualExtent;
+    }
+}
+
+VkFormat VkSandboxSwapchain::findDepthFormat()
+{
+    return m_device.findSupportedFormat(
+        { VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT },
+        VK_IMAGE_TILING_OPTIMAL,
+        VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
+}
 

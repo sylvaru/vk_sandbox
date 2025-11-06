@@ -41,5 +41,6 @@ target_link_libraries(sandbox_renderer
         tinyobjloader
         tinygltf
         ktx
+        imgui
         core_interfaces
 )
