@@ -44,8 +44,6 @@ namespace Core {
 
         using OBJmodelHandle = std::shared_ptr<VkSandboxOBJmodel>;
         using GLTFmodelHandle = std::shared_ptr<vkglTF::Model>;
-        //using TextureHandle  = std::shared_ptr<VulkanTexture>;
-        //using ShaderHandle = std::shared_ptr<ShaderModule>;
 
         VkDescriptorImageInfo getCubemapDescriptor(const std::string& name) const override {
             auto it = m_textures.find(name);
@@ -123,7 +121,7 @@ namespace Core {
         std::vector<std::shared_ptr<VkSandboxTexture>>                   m_textureList; // index → texture
 
         VkSandboxDevice& m_device;
-        VkQueue						m_transferQueue;
+        VkQueue m_transferQueue;
 
         // caches
         std::shared_ptr<VkSandboxTexture> lutBrdf, irradianceCube, prefilteredCube, environmentCube;

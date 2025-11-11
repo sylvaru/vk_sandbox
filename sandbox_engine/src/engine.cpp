@@ -53,7 +53,7 @@ namespace Core {
 
         using clock = std::chrono::high_resolution_clock;
         using duration_t = std::chrono::duration<double>;
-        constexpr double TARGET_FPS = 144.0;
+        constexpr double TARGET_FPS = 300.0;
         constexpr double TARGET_FRAME_TIME = 1.0 / TARGET_FPS;
         auto lastTime = clock::now();
 

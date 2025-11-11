@@ -682,8 +682,6 @@ vkglTF::Texture* vkglTF::Model::getTexture(uint32_t index)
 
 void vkglTF::Model::createEmptyTexture(VkQueue transferQueue)
 {
-	// Define the static member here (outside any class/function)
-
 
 	emptyTexture.device = m_pDevice;
 	emptyTexture.width = 1;
@@ -1069,6 +1067,7 @@ void vkglTF::Model::loadImages(tinygltf::Model& gltfModel, VkSandboxDevice* devi
 	createEmptyTexture(transferQueue);
 	emptyTexture.descriptor.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 }
+
 void vkglTF::Model::loadMaterials(tinygltf::Model& gltfModel)
 {
 	for (tinygltf::Material& mat : gltfModel.materials) {

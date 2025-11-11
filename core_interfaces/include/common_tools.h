@@ -29,25 +29,25 @@ static std::optional<std::string> find_existing_path(
     // Helper: check direct candidate (prefix + relPath)
     for (const auto& prefix : candidatePrefixes) {
         fs::path tryPath = fs::path(prefix) / relPath;
-        spdlog::debug("[AssetManager] try direct: {}", tryPath.string());
+        spdlog::debug(" try direct: {}", tryPath.string());
         if (fs::exists(tryPath)) return tryPath.string();
     }
 
     // Try PROJECT_ROOT_DIR + relPath
     fs::path rootTry = fs::path(PROJECT_ROOT_DIR) / relPath;
-    spdlog::debug("[AssetManager] try direct: {}", rootTry.string());
+    spdlog::debug(" try direct: {}", rootTry.string());
     if (fs::exists(rootTry)) return rootTry.string();
 
     // If direct attempts failed, attempt recursive search for the basename inside candidate prefixes.
     const std::string basename = fs::path(relPath).filename().string();
     if (basename.empty()) return std::nullopt;
 
-    spdlog::debug("[AssetManager] Starting recursive search for '{}' under candidates", basename);
+    spdlog::debug(" Starting recursive search for '{}' under candidates", basename);
 
     for (const auto& prefix : candidatePrefixes) {
         fs::path dir(prefix);
         if (!fs::exists(dir) || !fs::is_directory(dir)) {
-            spdlog::debug("[AssetManager] skip recursive search, not a dir: {}", dir.string());
+            spdlog::debug(" skip recursive search, not a dir: {}", dir.string());
             continue;
         }
 
@@ -56,13 +56,13 @@ static std::optional<std::string> find_existing_path(
             for (auto it = fs::recursive_directory_iterator(dir); it != fs::recursive_directory_iterator(); ++it) {
                 if (!it->is_regular_file()) continue;
                 if (it->path().filename() == basename) {
-                    spdlog::info("[AssetManager] Found '{}' at {}", basename, it->path().string());
+                    spdlog::info(" Found '{}' at {}", basename, it->path().string());
                     return it->path().string();
                 }
             }
         }
         catch (const std::exception& e) {
-            spdlog::warn("[AssetManager] recursive search under '{}' failed: {}", prefix, e.what());
+            spdlog::warn(" recursive search under '{}' failed: {}", prefix, e.what());
             // continue to next candidate
         }
     }
@@ -71,18 +71,18 @@ static std::optional<std::string> find_existing_path(
     try {
         fs::path root(PROJECT_ROOT_DIR);
         if (fs::exists(root) && fs::is_directory(root)) {
-            spdlog::debug("[AssetManager] Searching project root '{}' for '{}'", root.string(), basename);
+            spdlog::debug(" Searching project root '{}' for '{}'", root.string(), basename);
             for (auto it = fs::recursive_directory_iterator(root); it != fs::recursive_directory_iterator(); ++it) {
                 if (!it->is_regular_file()) continue;
                 if (it->path().filename() == basename) {
-                    spdlog::info("[AssetManager] Found '{}' under project root at {}", basename, it->path().string());
+                    spdlog::info(" Found '{}' under project root at {}", basename, it->path().string());
                     return it->path().string();
                 }
             }
         }
     }
     catch (const std::exception& e) {
-        spdlog::warn("[AssetManager] project-root recursive search failed: {}", e.what());
+        spdlog::warn(" project-root recursive search failed: {}", e.what());
     }
 
     return std::nullopt;

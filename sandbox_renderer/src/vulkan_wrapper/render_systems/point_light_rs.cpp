@@ -38,7 +38,6 @@ void PointLightRS::init(
     VkRenderPass renderPass,
     VkDescriptorSetLayout globalSetLayout)
 {
-    // Optional: assert device consistency
     assert(&device == &m_device);
 
     createPipelineLayout(globalSetLayout);
@@ -106,6 +105,42 @@ void PointLightRS::record(const RGContext& rgctx, FrameInfo& frame) {
 }
 
 
+void PointLightRS::update(FrameInfo& frame, GlobalUbo& ubo) {
+    auto rotateLight = glm::rotate(glm::mat4(1.f), m_rotationSpeed * frame.frameTime, glm::vec3(0.f, -1.f, 0.f));
+
+    int lightIndex = 0;
+
+    auto& registry = *frame.renderRegistry;
+    auto& lights = registry.getInstancesByType(RenderableType::Light);
+
+    for (MeshInstance* inst : lights) {
+        if (!inst || lightIndex >= MAX_LIGHTS)
+            break;
+
+        // Extract original position from model matrix 
+        glm::vec3 pos = glm::vec3(inst->transform.model[3]);
+
+        // Rotate position 
+        glm::vec3 newPos = glm::vec3(rotateLight * glm::vec4(pos, 1.f));
+
+        // Write back to transform matrices 
+        inst->transform.model[3] = glm::vec4(newPos, 1.0f);
+        inst->transform.normalMat = glm::transpose(glm::inverse(inst->transform.model));
+
+        //  Update UBO 
+        ubo.pointLights[lightIndex].position = glm::vec4(newPos, 1.f);
+        ubo.pointLights[lightIndex].color = glm::vec4(inst->emissiveColor, inst->intensity);
+
+        ++lightIndex;
+    }
+
+    ubo.numLights = lightIndex;
+}
+
+
+
+
+
 
 void PointLightRS::createPipelineLayout(VkDescriptorSetLayout globalSetLayout) {
     VkPushConstantRange pushConstantRange{};
@@ -148,35 +183,3 @@ void PointLightRS::createPipeline(VkRenderPass renderPass) {
     );
 }
 
-void PointLightRS::update(FrameInfo& frame, GlobalUbo& ubo) {
-    auto rotateLight = glm::rotate(glm::mat4(1.f), m_rotationSpeed * frame.frameTime, glm::vec3(0.f, -1.f, 0.f));
-
-    int lightIndex = 0;
-
-    // We now use the render registry lights, not frame.gameObjects
-    auto& registry = *frame.renderRegistry;
-    auto& lights = registry.getInstancesByType(RenderableType::Light);
-
-    for (MeshInstance* inst : lights) {
-        if (!inst || lightIndex >= MAX_LIGHTS)
-            break;
-
-        // --- Extract original position from model matrix ---
-        glm::vec3 pos = glm::vec3(inst->transform.model[3]);
-
-        // --- Rotate position ---
-        glm::vec3 newPos = glm::vec3(rotateLight * glm::vec4(pos, 1.f));
-
-        // --- Write back to transform matrices ---
-        inst->transform.model[3] = glm::vec4(newPos, 1.0f);
-        inst->transform.normalMat = glm::transpose(glm::inverse(inst->transform.model));
-
-        // --- Update UBO ---
-        ubo.pointLights[lightIndex].position = glm::vec4(newPos, 1.f);
-        ubo.pointLights[lightIndex].color = glm::vec4(inst->emissiveColor, inst->intensity);
-
-        ++lightIndex;
-    }
-
-    ubo.numLights = lightIndex;
-}
