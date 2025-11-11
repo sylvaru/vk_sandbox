@@ -563,8 +563,13 @@ vkglTF::Mesh::~Mesh() {
 	glTF node
 */
 glm::mat4 vkglTF::Node::localMatrix() {
-	return glm::translate(glm::mat4(1.0f), translation) * glm::mat4(rotation) * glm::scale(glm::mat4(1.0f), scale) * matrix;
+	glm::mat4 T = glm::translate(glm::mat4(1.0f), translation);
+	glm::mat4 R = glm::mat4_cast(rotation); // quaternion -> mat4 (correct)
+	glm::mat4 S = glm::scale(glm::mat4(1.0f), scale);
+	// If the glTF node had a direct matrix field, it should be applied (usually last)
+	return T * R * S * matrix;
 }
+
 
 glm::mat4 vkglTF::Node::getMatrix() {
 	glm::mat4 m = localMatrix();

@@ -26,7 +26,8 @@ void SandboxMNKController::update(float dt, std::shared_ptr<IWindowInput> input,
     m_pitch += deltaPitch;
     m_pitch = glm::clamp(m_pitch, -89.f, 89.f);
 
-    transform.rotation = glm::vec3(glm::radians(m_pitch), glm::radians(m_yaw), 0.f);
+    transform.rotation.x = glm::radians(m_pitch);
+    transform.rotation.y = glm::radians(m_yaw);
 
     // --- 3) Compute movement basis ---
     glm::vec3 front{

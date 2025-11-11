@@ -10,8 +10,8 @@
 
 #include "vulkan_wrapper/vulkan_gltf.h"
 #include "vulkan_wrapper/core/vulkan_renderer.h"
-#include "vulkan_wrapper/render_systems/gltf_render_system.h"
 #include "vulkan_wrapper/core/render_graph.h"
+#include "vulkan_wrapper/core/renderable_registry.h"
 
 // STD
 #include <memory>

@@ -12,6 +12,9 @@ public:
 
     void update(float dt, std::shared_ptr<IWindowInput> input, TransformComponent& transform);
     void mouseCallback(glm::vec2 delta);
+    void setMoveSpeed(float s) { m_moveSpeed = s; }
+    void setMouseSensitivity(float s) { m_mouseSensitivity = s; }
+    void setOrientation(float yawDeg, float pitchDeg) { m_yaw = yawDeg; m_pitch = pitchDeg; }
     float getYaw() const { return m_yaw; }
     float getPitch() const { return m_pitch; }
 

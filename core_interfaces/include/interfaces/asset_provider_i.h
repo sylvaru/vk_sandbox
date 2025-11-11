@@ -2,7 +2,8 @@
 #include <vulkan/vulkan.h>
 #include <string>
 #include <memory>
-#include <vulkan_wrapper/vulkan_gltf.h>
+
+namespace vkglTF { class Model; }
 
 struct IAssetProvider {
 	virtual VkDescriptorImageInfo getCubemapDescriptor(const std::string& name) const = 0;

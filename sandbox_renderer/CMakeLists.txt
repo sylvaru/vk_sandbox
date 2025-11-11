@@ -21,6 +21,7 @@ target_sources(sandbox_renderer
          src/vulkan_wrapper/render_systems/skybox_ibl_rs.cpp
          src/vulkan_wrapper/render_systems/scene_rs.cpp
          src/vulkan_wrapper/core/render_graph.cpp
+         src/vulkan_wrapper/core/renderable_registry.cpp
  )
 
 

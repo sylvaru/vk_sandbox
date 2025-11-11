@@ -11,8 +11,6 @@ SkyboxIBLrenderSystem::SkyboxIBLrenderSystem(
 {
 }
 
-
-
 SkyboxIBLrenderSystem::~SkyboxIBLrenderSystem() {
 	// destroy the pipeline layout you created
 	vkDestroyPipelineLayout(m_device.device(), m_pipelineLayout, nullptr);
@@ -36,6 +34,45 @@ void SkyboxIBLrenderSystem::init(
 	createPipelineLayout(globalSetLayout);
 	createPipeline(renderPass);
 }
+void SkyboxIBLrenderSystem::render(FrameInfo& frame) {
+	if (!m_bHasCubemap || !frame.renderRegistry) return;
+
+	const auto& registry = *frame.renderRegistry;
+	const auto& skyboxes = registry.getInstancesByType(RenderableType::Skybox);
+	if (skyboxes.empty()) return;
+
+	m_pipeline->bind(frame.commandBuffer);
+
+	std::array<VkDescriptorSet, 2> sets = {
+		frame.globalDescriptorSet,
+		m_skyboxDescriptorSet
+	};
+	vkCmdBindDescriptorSets(
+		frame.commandBuffer,
+		VK_PIPELINE_BIND_POINT_GRAPHICS,
+		m_pipelineLayout,
+		0,
+		static_cast<uint32_t>(sets.size()),
+		sets.data(),
+		0, nullptr
+	);
+
+	for (auto* inst : skyboxes) {
+		if (!inst->model) continue;
+
+		inst->model->bind(frame.commandBuffer);
+		inst->model->gltfDraw(frame.commandBuffer);
+	}
+}
+
+
+void SkyboxIBLrenderSystem::record(const RGContext& rgctx, FrameInfo& frame) {
+	frame.commandBuffer = rgctx.cmd;
+	frame.frameIndex = rgctx.frameIndex;
+	frame.globalDescriptorSet = rgctx.globalSet;
+
+	this->render(frame);
+}
 
 void SkyboxIBLrenderSystem::createSkyboxDescriptorSetLayout() {
 	m_skyboxSetLayout = VkSandboxDescriptorSetLayout::Builder(m_device)
@@ -47,7 +84,6 @@ void SkyboxIBLrenderSystem::createSkyboxDescriptorSetLayout() {
 			0)
 		.build();
 }
-
 
 void SkyboxIBLrenderSystem::allocateAndWriteSkyboxDescriptorSet() {
 	assert(m_descriptorPool && "Descriptor pool must be set before allocating descriptors");
@@ -80,65 +116,7 @@ void SkyboxIBLrenderSystem::createPipelineLayout(VkDescriptorSetLayout globalSet
 	}
 }
 
-void SkyboxIBLrenderSystem::render(FrameInfo& frameInfo) {
 
-	if (!m_bHasCubemap) return;
-
-	auto skyOpt = frameInfo.scene.getSkyboxObject();
-
-	if (!skyOpt.has_value()) {
-		return; // nothing to draw
-	}
-	IGameObject& skyObj = skyOpt->get();
-
-	if (skyObj.getPreferredRenderTag() != RenderTag::Skybox) {
-		return; // not mine, skip
-	}
-	assert(m_skyboxDescriptorSet != VK_NULL_HANDLE && "Skybox descriptor set is not allocated!");
-
-	m_pipeline->bind(frameInfo.commandBuffer);
-	// Bind two descriptor sets: 0=global UBO, 1=skybox cubemap
-	std::array<VkDescriptorSet, 2> sets = {
-		frameInfo.globalDescriptorSet,
-		m_skyboxDescriptorSet
-	};
-
-	// Defensive check before binding
-	for (auto set : sets) {
-		assert(set != VK_NULL_HANDLE && "Descriptor set handle is null!");
-	}
-
-
-	vkCmdBindDescriptorSets(
-		frameInfo.commandBuffer,
-		VK_PIPELINE_BIND_POINT_GRAPHICS,
-		m_pipelineLayout,
-		0,
-		static_cast<uint32_t>(sets.size()),
-		sets.data(),
-		0,
-		nullptr
-	);
-
-	std::shared_ptr<IModel> model = m_skyboxModel;
-
-	if (!model && skyOpt.has_value()) {
-		IGameObject& skyObj = skyOpt->get();
-		model = skyObj.getModel();
-	}
-
-	if (model) {
-		model->bind(frameInfo.commandBuffer);
-		model->gltfDraw(frameInfo.commandBuffer);
-	}
-}
-void SkyboxIBLrenderSystem::record(const RGContext& rgctx, FrameInfo& frame) {
-	frame.commandBuffer = rgctx.cmd;
-	frame.frameIndex = rgctx.frameIndex;
-	frame.globalDescriptorSet = rgctx.globalSet;
-
-	this->render(frame);
-}
 
 void SkyboxIBLrenderSystem::createPipeline(VkRenderPass renderPass) {
 	assert(m_pipelineLayout != VK_NULL_HANDLE && "Pipeline layout must be created before pipeline");

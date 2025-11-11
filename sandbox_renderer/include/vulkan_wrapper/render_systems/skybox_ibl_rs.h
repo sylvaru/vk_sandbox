@@ -6,6 +6,8 @@
 #include "vulkan_wrapper/vulkan_descriptor.h"
 #include "vulkan_wrapper/vulkan_gltf.h"
 #include "vulkan_wrapper/core/render_graph.h"
+#include "vulkan_wrapper/core/renderable_registry.h"
+
 #include <vulkan/vulkan.h>
 
 // STD

@@ -33,6 +33,97 @@ void SceneRenderSystem::init(
 
 }
 
+void SceneRenderSystem::render(FrameInfo& frame) {
+    const RenderableRegistry* registry = frame.renderRegistry;
+    if (!registry) return;
+
+    // Get all scene-type instances
+    const auto& instances = registry->getInstancePool();
+    std::vector<const MeshInstance*> sceneInstances;
+    sceneInstances.reserve(instances.size());
+
+    for (const auto& inst : instances) {
+        if (inst.type == RenderableType::Gltf || inst.type == RenderableType::Scene) {
+            if (inst.model) sceneInstances.push_back(&inst);
+        }
+    }
+
+    if (sceneInstances.empty()) return;
+
+    // Record commands for each scene instance
+    for (const MeshInstance* inst : sceneInstances) {
+        vkglTF::Model* model = inst->model;
+        if (!model) continue;
+
+        model->bind(frame.commandBuffer);
+
+        // Update transforms (could later be GPU-buffer-driven)
+        const glm::mat4& world = inst->transform.model;
+        const glm::mat4& normalMat = inst->transform.normalMat;
+
+        for (auto* node : model->m_linearNodes) {
+            if (!node->mesh) continue;
+
+            // Write updated per-object transforms
+            glm::mat4 nodeWorld = world * node->getMatrix();
+            glm::mat4 nodeNormalMat = glm::transpose(glm::inverse(nodeWorld));
+
+            // Write updated per-object transforms (per-node)
+            memcpy(node->mesh->uniformBuffer.mapped, &nodeWorld, sizeof(nodeWorld));
+            memcpy(
+                reinterpret_cast<char*>(node->mesh->uniformBuffer.mapped) + sizeof(nodeWorld),
+                &nodeNormalMat,
+                sizeof(nodeNormalMat)
+            );
+
+            for (auto* primitive : node->mesh->primitives) {
+                // Bind descriptor sets
+                std::array<VkDescriptorSet, 2> sets = {
+                    frame.globalDescriptorSet,
+                    node->mesh->uniformBuffer.descriptorSet
+                };
+
+                vkCmdBindDescriptorSets(
+                    frame.commandBuffer,
+                    VK_PIPELINE_BIND_POINT_GRAPHICS,
+                    m_pipelineLayout,
+                    0,
+                    static_cast<uint32_t>(sets.size()),
+                    sets.data(),
+                    0,
+                    nullptr
+                );
+
+                // Pick pipeline by alpha mode
+                switch (primitive->material.alphaMode) {
+                case vkglTF::Material::ALPHAMODE_OPAQUE:
+                    m_opaquePipeline->bind(frame.commandBuffer);
+                    break;
+                case vkglTF::Material::ALPHAMODE_MASK:
+                    m_maskPipeline->bind(frame.commandBuffer);
+                    break;
+                case vkglTF::Material::ALPHAMODE_BLEND:
+                default:
+                    m_blendPipeline->bind(frame.commandBuffer);
+                    break;
+                }
+
+                // Draw node
+                model->drawNode(node, frame.commandBuffer, vkglTF::RenderFlags::BindImages, m_pipelineLayout, 2);
+            }
+        }
+    }
+}
+
+void SceneRenderSystem::record(const RGContext& rgctx, FrameInfo& frame) {
+    frame.commandBuffer = rgctx.cmd;
+    frame.frameIndex = rgctx.frameIndex;
+    frame.globalDescriptorSet = rgctx.globalSet;
+
+    this->render(frame);
+}
+
+
 void SceneRenderSystem::createPipelineLayout(VkDescriptorSetLayout globalSetLayout) {
     const std::vector<VkDescriptorSetLayout> layouts = {
         globalSetLayout,
@@ -129,78 +220,4 @@ void SceneRenderSystem::createPipeline(VkRenderPass renderPass) {
 
     m_blendPipeline = std::make_unique<VkSandboxPipeline>(
         m_device, vertSpv, fragSpv, blendConfig);
-}
-
-void SceneRenderSystem::render(FrameInfo& frame) {
-
-
-    static bool warnedThisFrame = false;
-
-    for (auto& [id, go] : frame.gameObjects) {
-
-        if (go->getPreferredRenderTag() != RenderTag::Scene) {
-            continue; // not mine, skip
-        }
-        auto baseModel = go->getModel();
-        if (!baseModel) continue;
-
-        auto model = std::dynamic_pointer_cast<vkglTF::Model>(baseModel);
-        if (!model) continue;
-
-        model->bind(frame.commandBuffer);
-
-        for (auto* node : model->m_linearNodes) {
-            if (!node->mesh) continue;
-
-            glm::mat4 world = go->getTransform().mat4() * node->getMatrix();
-            glm::mat4 normalMat = glm::transpose(glm::inverse(world));
-
-            memcpy(node->mesh->uniformBuffer.mapped, &world, sizeof(world));
-            memcpy((char*)node->mesh->uniformBuffer.mapped + sizeof(world), &normalMat, sizeof(normalMat));
-
-            for (auto* primitive : node->mesh->primitives) {
-
-         
-                std::array<VkDescriptorSet, 2> sets = {
-                    frame.globalDescriptorSet,
-                    node->mesh->uniformBuffer.descriptorSet
-                };
-
-
-                vkCmdBindDescriptorSets(
-                    frame.commandBuffer,
-                    VK_PIPELINE_BIND_POINT_GRAPHICS,
-                    m_pipelineLayout,
-                    0,
-                    static_cast<uint32_t>(sets.size()),
-                    sets.data(),
-                    0,
-                    nullptr);
-
-                switch (primitive->material.alphaMode) {
-                case vkglTF::Material::ALPHAMODE_OPAQUE:
-                    m_opaquePipeline->bind(frame.commandBuffer);
-                    break;
-                case vkglTF::Material::ALPHAMODE_MASK:
-                    m_maskPipeline->bind(frame.commandBuffer);
-                    break;
-                case vkglTF::Material::ALPHAMODE_BLEND:
-                default:
-                    m_blendPipeline->bind(frame.commandBuffer);
-                    break;
-                }
-
-                model->drawNode(node, frame.commandBuffer, vkglTF::RenderFlags::BindImages, m_pipelineLayout, 2);
-                warnedThisFrame = false;
-            }
-        }
-    }
-}
-
-void SceneRenderSystem::record(const RGContext& rgctx, FrameInfo& frame) {
-    frame.commandBuffer = rgctx.cmd;
-    frame.frameIndex = rgctx.frameIndex;
-    frame.globalDescriptorSet = rgctx.globalSet;
-
-    this->render(frame);
 }

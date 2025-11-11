@@ -58,6 +58,8 @@ namespace Core {
                     }
 
                     auto model = loadGLTFmodel(name, path, flags, scale);
+                
+
                     if (entry.value("usage", "") == "skybox" || name == "cube") {
                         m_skyboxModel = model;
                     }

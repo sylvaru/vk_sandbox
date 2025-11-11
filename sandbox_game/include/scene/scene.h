@@ -6,6 +6,8 @@
 #include "entities/player.h"
 #include "asset_manager.h"
 #include "entities/game_object.h"
+#include "vulkan_wrapper/core/renderable_registry.h"
+
 #include <memory>
 #include <vector>
 #include <string>
@@ -45,19 +47,41 @@ public:
 	std::string getSkyboxCubemapName() const {
 		return m_skyboxCubemapName;
 	}
+	const RenderableRegistry* getRenderableRegistry() const override {
+		return &m_renderRegistry;
+	}
 
 private:
 	std::shared_ptr<IWindowInput> m_pInput;
 	Core::AssetManager& m_assetManager;
 
 	std::vector<std::shared_ptr<SandboxPlayer>> m_players;
-	std::unordered_map<unsigned int, std::shared_ptr<IGameObject>>  m_gameObjects;
+	std::unordered_map<uint32_t, std::shared_ptr<IGameObject>>  m_gameObjects;
+
 	glm::vec3 m_initialCameraPosition{ 0.f };
 	glm::vec3 m_initialCameraRotation{ 0.f };
+
+	glm::vec3 m_initialPlayerPosition{ 0.f };
+	glm::vec3 m_initialPlayerRotation{ 0.f };
+	float m_initialPlayerFov = 80.f;
+	float m_initialPlayerSensitivity = 0.15f;
+	float m_initialPlayerMoveSpeed = 4.0f;
 
 	std::optional<uint32_t> m_skyboxId;
 	std::shared_ptr<IGameObject> m_skyboxObject;
 	std::string m_skyboxCubemapName = "skybox_hdr";
+
 	bool m_bIsObj = false;
 	bool m_bIsGltf = false;
+
+	RenderableRegistry m_renderRegistry;
+	std::unordered_map<uint32_t, RenderableID> m_goRenderable;
+	RenderableID createRenderableForGameObject(
+		uint32_t gameObjectId,
+		uint32_t meshIndex, uint32_t materialIndex,
+		const TransformData& t,
+		const glm::vec3& bsCenter, float bsRadius,
+		RenderableType type);
+
+	void removeRenderableForGameObject(uint32_t gameObjectId);
 };

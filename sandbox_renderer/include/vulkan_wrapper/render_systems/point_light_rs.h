@@ -4,6 +4,7 @@
 #include "vulkan_wrapper/vulkan_pipeline.h"
 #include <vulkan/vulkan.h>
 #include "vulkan_wrapper/core/render_graph.h"
+#include "vulkan_wrapper/core/renderable_registry.h"
 // STD
 #include <memory>
 #include <vector>

@@ -31,6 +31,7 @@ namespace Core {
 		m_windowInput->lockCursor(m_cursorLocked);
 		setupInputCallbacks();
 
+ 
 		spdlog::info("Engine initialized");
 	}
 
@@ -52,7 +53,7 @@ namespace Core {
 
         using clock = std::chrono::high_resolution_clock;
         using duration_t = std::chrono::duration<double>;
-        constexpr double TARGET_FPS = 60.0;
+        constexpr double TARGET_FPS = 144.0;
         constexpr double TARGET_FRAME_TIME = 1.0 / TARGET_FPS;
         auto lastTime = clock::now();
 
@@ -79,15 +80,14 @@ namespace Core {
 
             // Select scene & camera to render from
             IScene* scene = pickTopScene();
-            ICamera& cam = scene->getCamera();
+            const ICamera& cam = scene->getCamera();
 
-            // If we have a scene, prepare the renderer + systems using scene data
             if (scene) {
-                // Build frame info
                 ISandboxRenderer::FrameContext frame = m_renderer.beginFrame();
                 if (!frame.isValid()) break;
 
                 int idx = m_renderer.getFrameIndex();
+
                 FrameInfo info{
                     idx,
                     static_cast<float>(deltaTime),
@@ -95,10 +95,10 @@ namespace Core {
                     cam,
                     m_renderer.getGlobalDescriptorSet()[idx],
                     scene->getGameObjects(),
-                    *scene
+                    *scene,
+                    scene->getRenderableRegistry()
                 };
 
-                // CPU-side system updates. TODO: add animation updates here
                 GlobalUbo ubo{};
                 ubo.projection = cam.getProjectionMatrix();
                 ubo.view = cam.getViewMatrix();
@@ -124,9 +124,6 @@ namespace Core {
                 }
 
                 m_renderer.endFrame(frame);
-
-
-           
             }
             else {
                 // No scene: still allow layers to render (UI-only apps)

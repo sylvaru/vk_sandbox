@@ -1,7 +1,10 @@
 {
-  "camera": {
-    "position": [ 19.0, 5.5, 0.0 ],
-    "rotation": [ 14.0, 0.0, -20.0 ]
+  "player": {
+    "position": [ -1.0, 1.7, 0.0 ],
+    "rotation": [ -25.0, 0.0, 0.0 ],
+    "fov": 75.0,
+    "sensitivity": 0.09,
+    "move_speed": 0.95
   },
 
   "objects": [
@@ -10,8 +13,9 @@
       "special": "lights",
       "renderSystem": "pointLight",
       "count": 8,
-      "radius": 10.0,
-      "height": 6.0,
+      "orbit_radius": 5,
+      "light_radius": 0.1,
+      "height": 3.5,
       "intensity": 0.092,
       "colors": [
         [ 1.0, 0.95, 0.85 ],
@@ -27,6 +31,7 @@
     {
       "name": "cube",
       "usage": "skybox",
+      "model": "cube",
       "cubemap": "skybox_hdr",
       "renderSystem": "skybox"
     },
@@ -34,9 +39,9 @@
       "name": "Helmet",
       "model": "Damaged_Helmet",
       "renderSystem": "gltf",
-      "position": [ 10.0, 3.0, 0.0 ],
-      "rotation": [ 0.0, -5.0, 0.0 ],
-      "scale": [ 1.0, 1.0, 1.0 ]
+      "position": [ 3.0, 1.6, 0.0 ],
+      "rotation": [ 90.0, 0.0, 90.0 ],
+      "scale": [ 0.4, 0.4, 0.4 ]
     },
     {
       "name": "main_scene",
@@ -44,15 +49,15 @@
       "model": "sponza",
       "position": [ 0.0, 1.0, 0.0 ],
       "rotation": [ 0.0, 0.0, 0.0 ],
-      "scale": [ 2.0, 2.0, 2.0 ]
+      "scale": [ 1, 1, 1 ]
     },
     {
-      "name": "main_scene",
+      "name": "deagle",
       "renderSystem": "scene",
       "model": "deagle",
-      "position": [ 0.0, 2.0, 0.0 ],
-      "rotation": [ 0.0, 2.0, 0.0 ],
-      "scale": [ 0.07, 0.07, 0.07 ]
+      "position": [ 0.0, 1, 0.0 ],
+      "rotation": [ 0.0, 180.0, 90.0 ],
+      "scale": [ 0.01, 0.01, 0.01 ]
     }
   ]
 }

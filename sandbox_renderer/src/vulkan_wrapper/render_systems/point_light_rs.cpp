@@ -28,6 +28,11 @@ PointLightRS::PointLightRS(VkSandboxDevice& device, VkRenderPass renderPass, VkD
 {
     init(device, renderPass, globalSetLayout);
 }
+
+PointLightRS::~PointLightRS() {
+    vkDestroyPipelineLayout(m_device.device(), m_pipelineLayout, nullptr);
+}
+
 void PointLightRS::init(
     VkSandboxDevice& device,
     VkRenderPass renderPass,
@@ -40,9 +45,67 @@ void PointLightRS::init(
     createPipeline(renderPass);
 }
 
-PointLightRS::~PointLightRS() {
-    vkDestroyPipelineLayout(m_device.device(), m_pipelineLayout, nullptr);
+
+
+void PointLightRS::render(FrameInfo& frame) {
+    if (!frame.renderRegistry)
+        return;
+
+    auto& cmd = frame.commandBuffer;
+    const auto& instances = frame.renderRegistry->getInstancesByType(RenderableType::Light);
+
+    // Sort by distance from camera (optional)
+    std::map<float, const MeshInstance*> sorted;
+    const glm::vec3 camPos = frame.camera.getPosition();
+    for (const MeshInstance* inst : instances) {
+        glm::vec3 pos = glm::vec3(inst->transform.model[3]);
+        float dist2 = glm::dot(camPos - pos, camPos - pos);
+        sorted[dist2] = inst;
+    }
+
+    m_pipeline->bind(cmd);
+
+    vkCmdBindDescriptorSets(
+        cmd,
+        VK_PIPELINE_BIND_POINT_GRAPHICS,
+        m_pipelineLayout,
+        0, 1,
+        &frame.globalDescriptorSet,
+        0, nullptr
+    );
+
+    for (auto it = sorted.rbegin(); it != sorted.rend(); ++it) {
+        const MeshInstance* inst = it->second;
+        PointLightPushConstants push{};
+
+        glm::vec3 position = glm::vec3(inst->transform.model[3]);
+        push.position = glm::vec4(position, 1.0f);
+        push.color = glm::vec4(inst->emissiveColor, inst->intensity);
+        push.radius = inst->boundingSphereRadius;
+
+        vkCmdPushConstants(
+            cmd,
+            m_pipelineLayout,
+            VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+            0,
+            sizeof(PointLightPushConstants),
+            &push
+        );
+
+        vkCmdDraw(cmd, 6, 1, 0, 0);
+    }
 }
+
+
+void PointLightRS::record(const RGContext& rgctx, FrameInfo& frame) {
+    frame.commandBuffer = rgctx.cmd;
+    frame.frameIndex = rgctx.frameIndex;
+    frame.globalDescriptorSet = rgctx.globalSet;
+
+    this->render(frame);
+}
+
+
 
 void PointLightRS::createPipelineLayout(VkDescriptorSetLayout globalSetLayout) {
     VkPushConstantRange pushConstantRange{};
@@ -85,75 +148,32 @@ void PointLightRS::createPipeline(VkRenderPass renderPass) {
     );
 }
 
-void PointLightRS::render(FrameInfo& frame) {
-    std::map<float, uint32_t> sorted;
-    for (auto& [id, obj] : frame.gameObjects) {
-        const auto* light = obj->getPointLight();
-        if (obj->getPreferredRenderTag() != RenderTag::PointLight) {
-            continue;
-        }
-        if (!light) continue;
-        glm::vec3 offset = frame.camera.getPosition() - obj->getTransform().translation;
-        float distanceSquared = glm::dot(offset, offset);
-        sorted[distanceSquared] = obj->getId();
-    }
-    m_pipeline->bind(frame.commandBuffer);
-
-    vkCmdBindDescriptorSets(
-        frame.commandBuffer,
-        VK_PIPELINE_BIND_POINT_GRAPHICS,
-        m_pipelineLayout,
-        0,
-        1,
-        &frame.globalDescriptorSet,
-        0,
-        nullptr
-    );
-
-    for (auto it = sorted.rbegin(); it != sorted.rend(); ++it) {
-        auto& obj = frame.gameObjects.at(it ->second);
-        const auto* light = obj->getPointLight();
-        PointLightPushConstants push{};
-        push.position = glm::vec4(obj->getTransform().translation, 1.0f);
-        push.color = glm::vec4(obj->getColor(), light->lightIntensity);
-        push.radius = obj->getTransform().scale.x;
-
-        vkCmdPushConstants(
-            frame.commandBuffer,
-            m_pipelineLayout,
-            VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-            0,
-            sizeof(PointLightPushConstants),
-            &push
-        );
-
-        vkCmdDraw(frame.commandBuffer, 6, 1, 0, 0);
-    }
-
-}
-void PointLightRS::record(const RGContext& rgctx, FrameInfo& frame) {
-    frame.commandBuffer = rgctx.cmd;
-    frame.frameIndex = rgctx.frameIndex;
-    frame.globalDescriptorSet = rgctx.globalSet;
-
-    this->render(frame);
-}
 void PointLightRS::update(FrameInfo& frame, GlobalUbo& ubo) {
-    auto rotateLight = glm::rotate(glm::mat4(1.f), m_rotationSpeed * frame.frameTime, { 0.f, -1.f, 0.f });
+    auto rotateLight = glm::rotate(glm::mat4(1.f), m_rotationSpeed * frame.frameTime, glm::vec3(0.f, -1.f, 0.f));
 
     int lightIndex = 0;
-    for (auto& [id, obj] : frame.gameObjects) {
-        auto pointLight = obj->getPointLight();
-        if (!pointLight)
-            continue;
 
-        assert(lightIndex < MAX_LIGHTS && "Point lights exceed maximum supported.");
+    // We now use the render registry lights, not frame.gameObjects
+    auto& registry = *frame.renderRegistry;
+    auto& lights = registry.getInstancesByType(RenderableType::Light);
 
-        auto& transform = obj->getTransform();
-        transform.translation = glm::vec3(rotateLight * glm::vec4(transform.translation, 1.f));
+    for (MeshInstance* inst : lights) {
+        if (!inst || lightIndex >= MAX_LIGHTS)
+            break;
 
-        ubo.pointLights[lightIndex].position = glm::vec4(transform.translation, 1.f);
-        ubo.pointLights[lightIndex].color = glm::vec4(obj->getColor(), pointLight->lightIntensity);
+        // --- Extract original position from model matrix ---
+        glm::vec3 pos = glm::vec3(inst->transform.model[3]);
+
+        // --- Rotate position ---
+        glm::vec3 newPos = glm::vec3(rotateLight * glm::vec4(pos, 1.f));
+
+        // --- Write back to transform matrices ---
+        inst->transform.model[3] = glm::vec4(newPos, 1.0f);
+        inst->transform.normalMat = glm::transpose(glm::inverse(inst->transform.model));
+
+        // --- Update UBO ---
+        ubo.pointLights[lightIndex].position = glm::vec4(newPos, 1.f);
+        ubo.pointLights[lightIndex].color = glm::vec4(inst->emissiveColor, inst->intensity);
 
         ++lightIndex;
     }

@@ -9,6 +9,7 @@
 #include <optional>
 #include <string>
 
+class RenderableRegistry;
 class ICamera;
 struct IGameObject;
 
@@ -31,6 +32,6 @@ struct IScene {
     {
         return std::nullopt;
     }
-
+    virtual const RenderableRegistry* getRenderableRegistry() const { return nullptr; }
     virtual std::string getSkyboxCubemapName() const = 0;
 };

@@ -64,6 +64,87 @@ void GltfRenderSystem::init(
     }
 }
 
+void GltfRenderSystem::render(FrameInfo& frame) {
+    if (!frame.renderRegistry)
+        return;
+
+    VkCommandBuffer cmd = frame.commandBuffer;
+    const auto& instances = frame.renderRegistry->getInstancesByType(RenderableType::Gltf);
+
+    for (const MeshInstance* inst : instances) {
+        vkglTF::Model* model = inst->model;
+        if (!model) continue;
+
+        model->bind(cmd);
+
+        const glm::mat4 instModel = inst->transform.model; // instance/world transform
+        // iterate nodes and write *per-node* world = instModel * node->getMatrix()
+        for (auto* node : model->m_linearNodes) {
+            if (!node->mesh) continue;
+
+            // Compose final world matrix: instance/world transform * node local (hierarchical) matrix
+            glm::mat4 nodeWorld = instModel * node->getMatrix();
+
+            glm::mat4 nodeNormalMat = glm::transpose(glm::inverse(nodeWorld));
+
+            // Copy into this node's uniform buffer
+            memcpy(node->mesh->uniformBuffer.mapped, &nodeWorld, sizeof(nodeWorld));
+            memcpy(reinterpret_cast<char*>(node->mesh->uniformBuffer.mapped) + sizeof(nodeWorld),
+                &nodeNormalMat,
+                sizeof(nodeNormalMat));
+
+
+            for (auto* primitive : node->mesh->primitives) {
+                std::array<VkDescriptorSet, 2> sets = {
+                    frame.globalDescriptorSet,
+                    node->mesh->uniformBuffer.descriptorSet
+                };
+                vkCmdBindDescriptorSets(
+                    cmd,
+                    VK_PIPELINE_BIND_POINT_GRAPHICS,
+                    m_pipelineLayout,
+                    0,
+                    static_cast<uint32_t>(sets.size()),
+                    sets.data(),
+                    0, nullptr
+                );
+
+                VkDescriptorSet iblSet = m_iblDescriptorSets[frame.frameIndex];
+                if (iblSet != VK_NULL_HANDLE) {
+                    vkCmdBindDescriptorSets(
+                        cmd,
+                        VK_PIPELINE_BIND_POINT_GRAPHICS,
+                        m_pipelineLayout,
+                        3, 1, &iblSet,
+                        0, nullptr
+                    );
+                }
+
+                switch (primitive->material.alphaMode) {
+                case vkglTF::Material::ALPHAMODE_OPAQUE: m_opaquePipeline->bind(cmd); break;
+                case vkglTF::Material::ALPHAMODE_MASK:   m_maskPipeline->bind(cmd);   break;
+                case vkglTF::Material::ALPHAMODE_BLEND:
+                default:                                  m_blendPipeline->bind(cmd);  break;
+                }
+
+                model->gltfDraw(cmd, vkglTF::RenderFlags::BindImages, m_pipelineLayout, 2);
+            }
+        }
+    }
+}
+
+
+void GltfRenderSystem::record(const RGContext& rgctx, FrameInfo& frame) {
+    frame.commandBuffer = rgctx.cmd;
+    frame.frameIndex = rgctx.frameIndex;
+    frame.globalDescriptorSet = rgctx.globalSet;
+
+    this->render(frame);
+}
+
+
+
+
 void GltfRenderSystem::createPipelineLayout(VkDescriptorSetLayout globalSetLayout) {
     const std::vector<VkDescriptorSetLayout> layouts = {
        globalSetLayout,                         // set 0: global UBO
@@ -170,76 +251,3 @@ void GltfRenderSystem::createPipeline(VkRenderPass renderPass) {
         m_device, vertSpv, fragSpv, blendConfig);
 }
 
-void GltfRenderSystem::render(FrameInfo& frame) {
-    static bool warnedThisFrame = false;
-
-    for (auto& [id, go] : frame.gameObjects) {
-
-        if (go->getPreferredRenderTag() != RenderTag::Gltf) {
-            continue;
-        }
-        auto baseModel = go->getModel();
-        if (!baseModel) continue;
-
-        auto model = std::dynamic_pointer_cast<vkglTF::Model>(baseModel);
-        if (!model) continue;
-      
-        model->bind(frame.commandBuffer);
-
-        for (auto* node : model->m_linearNodes) {
-            if (!node->mesh) continue;
-
-            glm::mat4 world = go->getTransform().mat4() * node->getMatrix();
-            glm::mat4 normalMat = glm::transpose(glm::inverse(world));
-
-            memcpy(node->mesh->uniformBuffer.mapped, &world, sizeof(world));
-            memcpy((char*)node->mesh->uniformBuffer.mapped + sizeof(world), &normalMat, sizeof(normalMat));
-
-            for (auto* primitive : node->mesh->primitives) {
-                // --- Bind sets 0 & 1 (global + node UBO) ---
-                std::array<VkDescriptorSet, 2> sets = {
-                    frame.globalDescriptorSet,                 // set 0
-                    node->mesh->uniformBuffer.descriptorSet    // set 1
-                };
-                vkCmdBindDescriptorSets(
-                    frame.commandBuffer,
-                    VK_PIPELINE_BIND_POINT_GRAPHICS,
-                    m_pipelineLayout,
-                    0,
-                    static_cast<uint32_t>(sets.size()),
-                    sets.data(),
-                    0, nullptr
-                );
-
-                // --- Bind IBL set ---
-                VkDescriptorSet iblSet = m_iblDescriptorSets[frame.frameIndex];
-                if (iblSet == VK_NULL_HANDLE) { continue; }
-                vkCmdBindDescriptorSets(
-                    frame.commandBuffer,
-                    VK_PIPELINE_BIND_POINT_GRAPHICS,
-                    m_pipelineLayout,
-                    3, 1, &iblSet,
-                    0, nullptr
-                );
-
-                // Pick pipeline by alpha mode
-                switch (primitive->material.alphaMode) {
-                case vkglTF::Material::ALPHAMODE_OPAQUE: m_opaquePipeline->bind(frame.commandBuffer); break;
-                case vkglTF::Material::ALPHAMODE_MASK:   m_maskPipeline->bind(frame.commandBuffer);   break;
-                case vkglTF::Material::ALPHAMODE_BLEND:
-                default:                                  m_blendPipeline->bind(frame.commandBuffer);  break;
-                }
-
-                model->gltfDraw(frame.commandBuffer, vkglTF::RenderFlags::BindImages, m_pipelineLayout, 2);
-                warnedThisFrame = false;
-            }
-        }
-    }
-}
-void GltfRenderSystem::record(const RGContext& rgctx, FrameInfo& frame) {
-    frame.commandBuffer = rgctx.cmd;
-    frame.frameIndex = rgctx.frameIndex;
-    frame.globalDescriptorSet = rgctx.globalSet;
-
-    this->render(frame);
-}

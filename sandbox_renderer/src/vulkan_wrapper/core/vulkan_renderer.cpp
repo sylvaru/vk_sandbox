@@ -235,7 +235,7 @@ void VkSandboxRenderer::renderSystems(FrameInfo& info, FrameContext& frame) {
 
 
 ISandboxRenderer::FrameContext VkSandboxRenderer::beginFrame() {
-    // 1) AcquireNextImage does the fence‐wait for the current in‐flight frame internally
+    // AcquireNextImage does the fence‐wait for the current in‐flight frame internally
     VkResult result = m_swapchain->acquireNextImage(&m_currentImageIndex);
     if (result == VK_ERROR_OUT_OF_DATE_KHR) {
         createSwapChain();
@@ -245,10 +245,10 @@ ISandboxRenderer::FrameContext VkSandboxRenderer::beginFrame() {
         throw std::runtime_error("Failed to acquire swap chain image");
     }
 
-    // 2) Map imageIndex → frameIndex (in‐flight slot)
+    // Map imageIndex → frameIndex (in‐flight slot)
     m_currentFrameIndex = m_currentImageIndex % FrameCount;
 
-    // 3) Begin recording
+    // Begin recording
     VkCommandBuffer cmd = m_commandBuffers[m_currentImageIndex];
     vkResetCommandBuffer(cmd, 0);
     VkCommandBufferBeginInfo bi{ VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
@@ -258,7 +258,7 @@ ISandboxRenderer::FrameContext VkSandboxRenderer::beginFrame() {
 
     m_bIsFrameStarted = true;
 
-    // 4) Build the FrameContext
+    // Build the FrameContext
     ISandboxRenderer::FrameContext ctx{};
     ctx.graphicsCommandBuffers = m_commandBuffers;
     ctx.primaryGraphicsCommandBuffer = cmd;

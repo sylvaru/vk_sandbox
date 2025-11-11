@@ -8,6 +8,9 @@
 #include "interfaces/scene_i.h"
 #include "interfaces/game_object_i.h"
 
+
+class RenderableRegistry;
+
 #define MAX_LIGHTS 10
 struct IGameObject;
 struct IScene;
@@ -36,5 +39,6 @@ struct FrameInfo {
     VkDescriptorSet globalDescriptorSet;
     std::unordered_map<unsigned int, std::shared_ptr<IGameObject>>& gameObjects;
     IScene& scene;
+    const RenderableRegistry* renderRegistry = nullptr;
 };
 
