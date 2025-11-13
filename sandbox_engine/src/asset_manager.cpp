@@ -196,7 +196,7 @@ namespace Core {
             PROJECT_ROOT_DIR + std::string("/res/models/gltf/cube.gltf"),
             &m_device,
             m_transferQueue,
-            vkglTF::FileLoadingFlags::PreTransformVertices | vkglTF::FileLoadingFlags::FlipY | vkglTF::FileLoadingFlags::DontLoadImages
+            vkglTF::FileLoadingFlags::PreTransformVertices | vkglTF::FileLoadingFlags::DontLoadImages
         );
         generateBRDFlut();
 
@@ -633,7 +633,6 @@ namespace Core {
         pipelineLayoutCI.pPushConstantRanges = &pushRange;
         VK_CHECK_RESULT(vkCreatePipelineLayout(m_device.device(), &pipelineLayoutCI, nullptr, &pipelineLayoutLocal));
 
-        // --- Pipeline creation using your VkSandboxPipeline wrapper (vertex pos only) ---
         PipelineConfigInfo cfg{};
         VkSandboxPipeline::defaultPipelineConfigInfo(cfg);
 
@@ -660,6 +659,7 @@ namespace Core {
         cfg.descriptorSetLayouts = { descriptorsetlayout };
         cfg.pushConstantRanges = { pushRange };
 
+
         // shader paths (match your project layout)
         std::string vert = std::string(PROJECT_ROOT_DIR) + "/res/shaders/spirV/filtered_cube.vert.spv";
         std::string frag = std::string(PROJECT_ROOT_DIR) + "/res/shaders/spirV/prefiltered_env_map.frag.spv";
@@ -671,10 +671,11 @@ namespace Core {
             if (descriptorpool != VK_NULL_HANDLE) vkDestroyDescriptorPool(m_device.device(), descriptorpool, nullptr);
             throw std::runtime_error("Prefilter fragment shader SPIR-V not found");
         }
-
+        cfg.rasterizationInfo.cullMode = VK_CULL_MODE_NONE;
+        cfg.rasterizationInfo.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
         VkSandboxPipeline prefilterPipeline{ m_device, vert, frag, cfg };
+    
 
-        // --- Command buffer & initial transitions (use m_device helpers) ---
         VkCommandBuffer cmdBuf = m_device.createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);
 
         VkImageSubresourceRange subresourceRange = {};
@@ -691,23 +692,33 @@ namespace Core {
             VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
             subresourceRange);
 
-        // Setup matrices and viewports
+        glm::mat4 captureProj = glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, 512.0f);
+        captureProj[1][1] *= -1.0f; // Vulkan requires Y flip
+
+
         std::vector<glm::mat4> matrices = {
-          glm::lookAt(glm::vec3(0.0f), glm::vec3(1.0f, 0.0f, 0.0f),  glm::vec3(0.0f, -1.0f, 0.0f)),  // +X
-          glm::lookAt(glm::vec3(0.0f), glm::vec3(-1.0f, 0.0f, 0.0f), glm::vec3(0.0f, -1.0f, 0.0f)),  // -X
-          glm::lookAt(glm::vec3(0.0f), glm::vec3(0.0f, 1.0f, 0.0f),  glm::vec3(0.0f, 0.0f, 1.0f)),   // +Y
-          glm::lookAt(glm::vec3(0.0f), glm::vec3(0.0f, -1.0f, 0.0f), glm::vec3(0.0f, 0.0f, -1.0f)),  // -Y
-          glm::lookAt(glm::vec3(0.0f), glm::vec3(0.0f, 0.0f, 1.0f),  glm::vec3(0.0f, -1.0f, 0.0f)),  // +Z
-          glm::lookAt(glm::vec3(0.0f), glm::vec3(0.0f, 0.0f, -1.0f), glm::vec3(0.0f, -1.0f, 0.0f)),  // -Z
+            // +X
+            glm::lookAt(glm::vec3(0.0f), glm::vec3(1.0f,  0.0f,  0.0f), glm::vec3(0.0f, -1.0f,  0.0f)),
+            // -X
+            glm::lookAt(glm::vec3(0.0f), glm::vec3(-1.0f,  0.0f,  0.0f), glm::vec3(0.0f, -1.0f,  0.0f)),
+            // +Y (TOP)
+            glm::lookAt(glm::vec3(0.0f), glm::vec3(0.0f, -1.0f,  0.0f), glm::vec3(0.0f,  0.0f, -1.0f)),
+            // -Y (BOTTOM)
+            glm::lookAt(glm::vec3(0.0f), glm::vec3(0.0f,  1.0f,  0.0f), glm::vec3(0.0f,  0.0f,  1.0f)),
+            // +Z
+            glm::lookAt(glm::vec3(0.0f), glm::vec3(0.0f,  0.0f,  1.0f), glm::vec3(0.0f, -1.0f,  0.0f)),
+            // -Z
+            glm::lookAt(glm::vec3(0.0f), glm::vec3(0.0f,  0.0f, -1.0f), glm::vec3(0.0f, -1.0f,  0.0f))
         };
 
         VkViewport viewport = vkinit::viewport((float)dim, (float)dim, 0.0f, 1.0f);
         VkRect2D scissor = vkinit::rect2D(dim, dim, 0, 0);
 
+
+
         vkCmdSetViewport(cmdBuf, 0, 1, &viewport);
         vkCmdSetScissor(cmdBuf, 0, 1, &scissor);
 
-        // --- Main render loop (mips + faces) ---
         for (uint32_t m = 0; m < numMips; m++) {
             pushBlock.roughness = static_cast<float>(m) / static_cast<float>(numMips - 1);
             uint32_t mipDim = static_cast<uint32_t>(dim * std::pow(0.5f, (float)m));
@@ -729,30 +740,21 @@ namespace Core {
 
                 VkViewport vp = vkinit::viewport((float)mipDim, (float)mipDim, 0.0f, 1.0f);
                 VkRect2D sc = vkinit::rect2D(mipDim, mipDim, 0, 0);
-
-                // If you want to flip Y for cubemap face rendering:
-                bool flipY = false; // set true to flip the offscreen render vertically
-                if (flipY) {
-                    // Negative height flips Y; set y origin to height to keep image in-view
-                    vp.height = -vp.height;
-                    vp.y = (float)mipDim;
-                }
-
-                // Set viewport & scissor
                 vkCmdSetViewport(cmdBuf, 0, 1, &vp);
                 vkCmdSetScissor(cmdBuf, 0, 1, &sc);
 
-                // push constants (projection * view)
-                pushBlock.mvp = glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, 512.0f) * matrices[f];
-                pushBlock.mvp[1][1] *= -1.0f;// flip y
+                pushBlock.mvp = captureProj * matrices[f];
 
-                vkCmdPushConstants(cmdBuf, prefilterPipeline.getPipelineLayout(), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PushBlock), &pushBlock);
+                vkCmdPushConstants(cmdBuf,
+                    prefilterPipeline.getPipelineLayout(),
+                    VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+                    0,
+                    sizeof(PushBlock),
+                    &pushBlock);
 
-                // bind pipeline and descriptor set (environment cubemap sampler)
                 prefilterPipeline.bind(cmdBuf);
                 vkCmdBindDescriptorSets(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, prefilterPipeline.getPipelineLayout(), 0, 1, &descriptorset, 0, nullptr);
 
-                // draw the skybox mesh (ensure it binds position vertex at location 0)
                 if (!m_skyboxModel) {
                     spdlog::error("[AssetManager] No skybox model loaded - skipping draw in generatePrefilteredEnvMap()");
                 }
@@ -763,7 +765,6 @@ namespace Core {
 
                 vkCmdEndRenderPass(cmdBuf);
 
-                // copy from offscreen -> prefilteredCube mip/face
                 tools::setImageLayout(cmdBuf, offscreen.image, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
 
                 VkImageCopy copyRegion{};
@@ -1029,6 +1030,9 @@ namespace Core {
 
         std::string vert = std::string(PROJECT_ROOT_DIR) + "/res/shaders/spirV/filtered_cube.vert.spv";
         std::string frag = std::string(PROJECT_ROOT_DIR) + "/res/shaders/spirV/irradiance_cube.frag.spv";
+
+        cfg.rasterizationInfo.cullMode = VK_CULL_MODE_NONE;
+        cfg.rasterizationInfo.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
         VkSandboxPipeline irradiancePipeline{ m_device, vert, frag, cfg };
 
         // COMMAND RECORDING
@@ -1038,15 +1042,26 @@ namespace Core {
         VkImageSubresourceRange cubemapRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, numMips, 0, 6 };
         tools::setImageLayout(cmdBuf, irradianceCube->m_image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, cubemapRange);
 
-        // Setup matrices (same as Sascha)
+
+        glm::mat4 captureProj = glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, 512.0f);
+        captureProj[1][1] *= -1.0f; // Vulkan requires Y flip
+
+
         std::vector<glm::mat4> matrices = {
-            glm::lookAt(glm::vec3(0.0f), glm::vec3(1.0f, 0.0f, 0.0f),  glm::vec3(0.0f, -1.0f, 0.0f)),  // +X
-            glm::lookAt(glm::vec3(0.0f), glm::vec3(-1.0f, 0.0f, 0.0f), glm::vec3(0.0f, -1.0f, 0.0f)),  // -X
-            glm::lookAt(glm::vec3(0.0f), glm::vec3(0.0f, 1.0f, 0.0f),  glm::vec3(0.0f, 0.0f, 1.0f)),   // +Y
-            glm::lookAt(glm::vec3(0.0f), glm::vec3(0.0f, -1.0f, 0.0f), glm::vec3(0.0f, 0.0f, -1.0f)),  // -Y
-            glm::lookAt(glm::vec3(0.0f), glm::vec3(0.0f, 0.0f, 1.0f),  glm::vec3(0.0f, -1.0f, 0.0f)),  // +Z
-            glm::lookAt(glm::vec3(0.0f), glm::vec3(0.0f, 0.0f, -1.0f), glm::vec3(0.0f, -1.0f, 0.0f)),  // -Z
+            // +X
+            glm::lookAt(glm::vec3(0.0f), glm::vec3(1.0f,  0.0f,  0.0f), glm::vec3(0.0f, -1.0f,  0.0f)),
+            // -X
+            glm::lookAt(glm::vec3(0.0f), glm::vec3(-1.0f,  0.0f,  0.0f), glm::vec3(0.0f, -1.0f,  0.0f)),
+            // +Y (TOP)
+            glm::lookAt(glm::vec3(0.0f), glm::vec3(0.0f, -1.0f,  0.0f), glm::vec3(0.0f,  0.0f, -1.0f)),
+            // -Y (BOTTOM)
+            glm::lookAt(glm::vec3(0.0f), glm::vec3(0.0f,  1.0f,  0.0f), glm::vec3(0.0f,  0.0f,  1.0f)),
+            // +Z
+            glm::lookAt(glm::vec3(0.0f), glm::vec3(0.0f,  0.0f,  1.0f), glm::vec3(0.0f, -1.0f,  0.0f)),
+            // -Z
+            glm::lookAt(glm::vec3(0.0f), glm::vec3(0.0f,  0.0f, -1.0f), glm::vec3(0.0f, -1.0f,  0.0f))
         };
+
 
         // Main loop: mips and faces (matches Sascha's approach)
         for (uint32_t m = 0; m < numMips; ++m) {
@@ -1069,8 +1084,9 @@ namespace Core {
                 vkCmdSetScissor(cmdBuf, 0, 1, &sc);
 
                 // push constants
-                pushBlock.mvp = glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, 512.0f) * matrices[face];
+                pushBlock.mvp = captureProj * matrices[face];
                 vkCmdPushConstants(cmdBuf, irradiancePipeline.getPipelineLayout(), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PushBlock), &pushBlock);
+
 
                 // bind pipeline and descriptor set (USE the allocated VkDescriptorSet)
                 irradiancePipeline.bind(cmdBuf);
@@ -1092,6 +1108,7 @@ namespace Core {
                 // Transition offscreen image -> TRANSFER_SRC and copy to target cubemap mip/face
                 tools::setImageLayout(cmdBuf, offscreen.image, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
 
+                // GenerateIrradianceMap
                 VkImageCopy copyRegion{};
                 copyRegion.srcSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
                 copyRegion.dstSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, m, face, 1 };

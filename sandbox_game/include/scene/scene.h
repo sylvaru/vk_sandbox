@@ -7,12 +7,21 @@
 #include "asset_manager.h"
 #include "entities/game_object.h"
 #include "vulkan_wrapper/core/renderable_registry.h"
+#include "physics/physics_engine.h"
 
 #include <memory>
 #include <vector>
 #include <string>
 #include <fstream>
 #include <optional>
+
+
+
+struct CollisionSphere {
+	glm::vec3 center{ 0.f };
+	float radius{ 1.f };
+};
+
 
 class SandboxScene : public IScene {
 public:
@@ -76,6 +85,8 @@ private:
 
 	RenderableRegistry m_renderRegistry;
 	std::unordered_map<uint32_t, RenderableID> m_goRenderable;
+
+
 	RenderableID createRenderableForGameObject(
 		uint32_t gameObjectId,
 		uint32_t meshIndex, uint32_t materialIndex,
@@ -84,4 +95,11 @@ private:
 		RenderableType type);
 
 	void removeRenderableForGameObject(uint32_t gameObjectId);
+
+	//PhysicsEngine& m_physicsEngine;
+	std::vector<btRigidBody*> m_rigidBodies;
+	
+	void addRigidBody(btRigidBody* body);
+	void removeRigidBody(btRigidBody* body);
 };
+

@@ -67,6 +67,7 @@ public:
     int instanceIndexFromID(RenderableID id) const;
 
     const std::vector<MeshInstance*> getInstancesByType(RenderableType type) const;
+    std::vector<const MeshInstance*> getInstances() const;
 
     MeshInstance* getInstanceMutable(RenderableID id);
 

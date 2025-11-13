@@ -97,3 +97,13 @@ MeshInstance* RenderableRegistry::getInstanceMutable(RenderableID id) {
     }
     return nullptr;
 }
+
+std::vector<const MeshInstance*> RenderableRegistry::getInstances() const {
+	std::lock_guard<std::mutex> lk(m_mutex);
+    std::vector<const MeshInstance*> out;
+	out.reserve(m_instances.size());
+    for (const auto& inst : m_instances) {
+        out.push_back(&inst);
+    }
+	return out;
+}

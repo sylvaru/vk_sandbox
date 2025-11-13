@@ -29,11 +29,11 @@
       ]
     },
     {
-      "name": "cube",
-      "usage": "skybox",
-      "model": "cube",
-      "cubemap": "skybox_hdr",
-      "renderSystem": "skybox"
+        "name": "cube",
+        "usage": "skybox",
+        "model": "cube",
+        "cubemap": "skybox_hdr",
+        "renderSystem": "skybox"
     },
     {
       "name": "Helmet",
@@ -52,12 +52,12 @@
       "scale": [ 1, 1, 1 ]
     },
     {
-      "name": "deagle",
-      "renderSystem": "scene",
-      "model": "deagle",
-      "position": [ 0.0, 1, 0.0 ],
-      "rotation": [ 0.0, 180.0, 90.0 ],
-      "scale": [ 0.01, 0.01, 0.01 ]
+        "name": "deagle",
+        "renderSystem": "scene",
+        "model": "deagle",
+        "position": [ 0.0, 1, 0.0 ],
+        "rotation": [ 0.0, 180.0, 90.0 ],
+        "scale": [ 0.01, 0.01, 0.01 ]
     }
   ]
 }

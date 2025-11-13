@@ -9,7 +9,7 @@
 #include "interfaces/window_input_i.h"
 #include "common/glfw_input.h"
 #include "asset_manager.h"
-
+#include "physics/physics_engine.h"
 
 namespace Core {
 
@@ -62,7 +62,9 @@ namespace Core {
         AssetManager                             m_assetManager;
         VkSandboxRenderer                        m_renderer;
         std::shared_ptr<IWindowInput>            m_windowInput;
-        std::vector<std::unique_ptr<ILayer>> m_layers;
+		std::unique_ptr<PhysicsEngine>           m_physicsEngine;
+
+        std::vector<std::unique_ptr<ILayer>>     m_layers;
 
     };
 }

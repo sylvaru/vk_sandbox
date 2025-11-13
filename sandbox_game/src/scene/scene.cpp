@@ -39,6 +39,7 @@ void SandboxScene::init() {
         glm::degrees(m_initialPlayerRotation.y),
         glm::degrees(m_initialPlayerRotation.z),
         m_initialPlayerFov, m_initialPlayerSensitivity, m_initialPlayerMoveSpeed);
+
 }
 
 void SandboxScene::update(float dt) {
@@ -49,6 +50,7 @@ void SandboxScene::update(float dt) {
     for (auto& [id, obj] : m_gameObjects) {
         obj->onUpdate(dt);
     }
+
 }
 
 void SandboxScene::loadSceneFile(const std::string& fileName) {
@@ -264,7 +266,7 @@ void SandboxScene::loadSceneFile(const std::string& fileName) {
 
         // Insert into map (store as base interface)
         m_gameObjects.emplace(gameObject->getId(), std::static_pointer_cast<IGameObject>(gameObject));
-        
+
 
 
         if (auto model = gameObject->getModel()) {
@@ -279,7 +281,11 @@ void SandboxScene::loadSceneFile(const std::string& fileName) {
         }
     }
 
+
     spdlog::info("Scene '{}' loaded. Total objects: {}", fileName, m_gameObjects.size());
+}
+void SandboxScene::addRigidBody(btRigidBody* body) {
+	//m_physicsWorld->addRigidBody(body);
 }
 
 RenderableID SandboxScene::createRenderableForGameObject(
@@ -306,7 +312,7 @@ RenderableID SandboxScene::createRenderableForGameObject(
             case RenderableType::Skybox:
             case RenderableType::Light:
             case RenderableType::Scene:
-             
+
             {
                 if (auto gltf = std::dynamic_pointer_cast<vkglTF::Model>(base)) {
                     m_renderRegistry.setModelPointer(rid, gltf.get());
@@ -332,6 +338,8 @@ void SandboxScene::removeRenderableForGameObject(uint32_t gameObjectId)
         m_goRenderable.erase(it);
     }
 }
+
+
 
 std::optional<std::reference_wrapper<SandboxGameObject>> SandboxScene::getSkyboxObject() {
     if (!m_skyboxId) return std::nullopt;

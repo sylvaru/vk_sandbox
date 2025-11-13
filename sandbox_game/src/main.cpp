@@ -1,8 +1,9 @@
-// main.cpp
+// sandbox_game/main.cpp
 #include <memory>
 #include "engine.h"
 #include "layers/game_layer.h"
 #include "layers/imgui_layer.h"
+
 
 int main()
 {
@@ -17,6 +18,7 @@ int main()
     engine.pushLayer<ImGuiLayer>();
 
     engine.runApp();
+
 
     return 0;
 }

@@ -1,10 +1,10 @@
+// sandbox_engine/src/engine.cpp
 #include "engine.h"
 #include "key_codes.h"
 #include "spdlog/spdlog.h"
 #include "frame_info.h"
 #include <thread>
 #include <chrono>
-
 
 
 namespace Core {
@@ -17,6 +17,7 @@ namespace Core {
 		, m_assetManager(m_device)
 		, m_renderer(m_device, m_window)
 		, m_windowInput(std::make_shared<GLFWWindowInput>(m_window.getGLFWwindow()))
+		, m_physicsEngine(std::make_unique<PhysicsEngine>())
 	{
 		m_assetManager.preloadGlobalAssets();
 		initialize();
@@ -77,27 +78,28 @@ namespace Core {
             for (auto& layer : m_layers) {
                 layer->onUpdate(static_cast<float>(deltaTime));
             }
+            // Step physics after logic updates, before rendering
+            if (m_physicsEngine) {
+                m_physicsEngine->stepSimulation(static_cast<float>(deltaTime));
+            }
 
-            // Select scene & camera to render from
             IScene* scene = pickTopScene();
-            const ICamera& cam = scene->getCamera();
 
             if (scene) {
                 ISandboxRenderer::FrameContext frame = m_renderer.beginFrame();
                 if (!frame.isValid()) break;
 
+                const ICamera& cam = scene->getCamera();
+
                 int idx = m_renderer.getFrameIndex();
 
-                FrameInfo info{
-                    idx,
-                    static_cast<float>(deltaTime),
-                    frame.primaryGraphicsCommandBuffer,
-                    cam,
-                    m_renderer.getGlobalDescriptorSet()[idx],
-                    scene->getGameObjects(),
-                    *scene,
-                    scene->getRenderableRegistry()
-                };
+                FrameInfo info{};
+                info.frameIndex = idx;
+				info.frameTime = static_cast<float>(deltaTime);
+				info.commandBuffer = frame.primaryGraphicsCommandBuffer;
+				info.camera = &cam;
+				info.globalDescriptorSet = m_renderer.getGlobalDescriptorSet()[idx];
+				info.renderRegistry = scene->getRenderableRegistry();
 
                 GlobalUbo ubo{};
                 ubo.projection = cam.getProjectionMatrix();

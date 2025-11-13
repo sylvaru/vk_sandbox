@@ -20,7 +20,7 @@
 
 #include "vulkan_wrapper/vulkan_gltf.h"
 #include "vk_tools/vk_tools.h"
-
+#include <spdlog/spdlog.h>
 
 VkDescriptorSetLayout  vkglTF::descriptorSetLayoutImage = VK_NULL_HANDLE;
 VkDescriptorSetLayout  vkglTF::descriptorSetLayoutIbl = VK_NULL_HANDLE;
@@ -455,13 +455,16 @@ void vkglTF::Material::createDescriptorSet(
 	uint32_t descriptorBindingFlags,
 	vkglTF::Texture* fallbackTexture
 ) {
+
+
+
 	// Allocate descriptor set
 	VkDescriptorSetAllocateInfo allocInfo{};
 	allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
 	allocInfo.descriptorPool = descriptorPool;
 	allocInfo.descriptorSetCount = 1;
 	allocInfo.pSetLayouts = &descriptorSetLayout;
-	VK_CHECK_RESULT(vkAllocateDescriptorSets(device->m_logicalDevice, &allocInfo, &descriptorSet));
+	VK_CHECK_RESULT(vkAllocateDescriptorSets(device->device(), &allocInfo, &descriptorSet));
 
 	// Prepare image infos with fallback
 	VkDescriptorImageInfo baseColorImageInfo = (baseColorTexture && (descriptorBindingFlags & DescriptorBindingFlags::ImageBaseColor))
@@ -516,8 +519,10 @@ void vkglTF::Material::createDescriptorSet(
 		VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, nullptr, descriptorSet, 5, 0, 1,
 		VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &emissiveImageInfo, nullptr, nullptr
 	};
+	if (device) {
+		vkUpdateDescriptorSets(device->device(), static_cast<uint32_t>(writeDescriptorSets.size()), writeDescriptorSets.data(), 0, nullptr);
+	}
 
-	vkUpdateDescriptorSets(device->m_logicalDevice, static_cast<uint32_t>(writeDescriptorSets.size()), writeDescriptorSets.data(), 0, nullptr);
 }
 
 
@@ -813,7 +818,7 @@ vkglTF::Model::~Model()
 	emptyTexture.destroy();
 }
 
-void   vkglTF::Model::loadNode( Node* parent, const tinygltf::Node& node, uint32_t nodeIndex, const tinygltf::Model& model, std::vector<uint32_t>& indexBuffer, std::vector<Vertex>& vertexBuffer, float globalscale)
+void vkglTF::Model::loadNode( Node* parent, const tinygltf::Node& node, uint32_t nodeIndex, const tinygltf::Model& model, std::vector<uint32_t>& indexBuffer, std::vector<Vertex>& vertexBuffer, float globalscale)
 {
 	 Node* newNode = new Node{};
 	newNode->index = nodeIndex;
@@ -999,6 +1004,7 @@ void   vkglTF::Model::loadNode( Node* parent, const tinygltf::Node& node, uint32
 					return;
 				}
 			}
+			//
 			Primitive* newPrimitive = new Primitive(indexStart, indexCount, primitive.material > -1 ? m_materials[primitive.material] : m_materials.back());
 			newPrimitive->firstVertex = vertexStart;
 			newPrimitive->vertexCount = vertexCount;
@@ -1241,8 +1247,9 @@ void  vkglTF::Model::loadFromFile(std::string filename, VkSandboxDevice* device,
 	if (fileLoaded) {
 		if (!(fileLoadingFlags & FileLoadingFlags::DontLoadImages)) {
 			loadImages(gltfModel, device, transferQueue);
-			loadMaterials(gltfModel);
+			
 		}
+		loadMaterials(gltfModel);
 	
 		const tinygltf::Scene& scene = gltfModel.scenes[gltfModel.defaultScene > -1 ? gltfModel.defaultScene : 0];
 		for (size_t i = 0; i < scene.nodes.size(); i++) {

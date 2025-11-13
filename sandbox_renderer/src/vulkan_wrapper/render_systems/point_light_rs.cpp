@@ -55,7 +55,7 @@ void PointLightRS::render(FrameInfo& frame) {
 
     // Sort by distance from camera (optional)
     std::map<float, const MeshInstance*> sorted;
-    const glm::vec3 camPos = frame.camera.getPosition();
+    const glm::vec3 camPos = frame.camera->getPosition();
     for (const MeshInstance* inst : instances) {
         glm::vec3 pos = glm::vec3(inst->transform.model[3]);
         float dist2 = glm::dot(camPos - pos, camPos - pos);

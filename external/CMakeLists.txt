@@ -45,6 +45,27 @@ target_link_libraries(tinygltf INTERFACE json stb)
 # ==========================================================
 add_subdirectory(tinyobjloader)
 
+# ----------------------------
+# Bullet3
+# ----------------------------
+
+# Turn off demos/tests
+set(BUILD_BULLET2_DEMOS OFF CACHE BOOL "" FORCE)
+set(BUILD_CPU_DEMOS OFF CACHE BOOL "" FORCE)
+set(BUILD_OPENGL3_DEMOS OFF CACHE BOOL "" FORCE)
+set(BUILD_UNIT_TESTS OFF CACHE BOOL "" FORCE)
+set(BUILD_EXTRAS OFF CACHE BOOL "" FORCE)
+set(BUILD_BULLET3 ON CACHE BOOL "" FORCE)
+
+# Make Bullet use the same MSVC runtime flags as the main project
+if(MSVC)
+    # Ensure global and cached variable are both set
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL" CACHE STRING "MSVC runtime for Bullet" FORCE)
+    # Also force propagate it down into subdirectories
+    set(BULLET_MSVC_RUNTIME_LIBRARY "${CMAKE_MSVC_RUNTIME_LIBRARY}" CACHE STRING "" FORCE)
+endif()
+
+add_subdirectory(bullet3)
 
 # ==========================================================
 # dear imgui

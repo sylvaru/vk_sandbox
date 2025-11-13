@@ -23,7 +23,8 @@ enum class RenderableType {
     Scene,
     Obj,
     Skybox,
-    Light
+    Light,
+    Ghost
 };
 
 struct DrawIndirect {
@@ -34,6 +35,7 @@ struct DrawIndirect {
     uint32_t firstInstance; // index into transform array (PerObject)
 };
 
+
 struct MeshInstance {
     RenderableID id;
     uint32_t meshIndex;
@@ -41,6 +43,8 @@ struct MeshInstance {
     TransformData transform;
     float boundingSphereRadius;
     glm::vec3 boundingSphereCenterModelSpace; // object-space center
+    glm::vec3 aabbMinWorld;
+	glm::vec3 aabbMaxWorld;
     RenderableType type = RenderableType::None;
     vkglTF::Model* model = nullptr;
     glm::vec3 emissiveColor{ 1.0f };

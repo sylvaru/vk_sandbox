@@ -127,7 +127,7 @@ void GltfRenderSystem::render(FrameInfo& frame) {
                 default:                                  m_blendPipeline->bind(cmd);  break;
                 }
 
-                model->gltfDraw(cmd, vkglTF::RenderFlags::BindImages, m_pipelineLayout, 2);
+                model->drawNode(node, frame.commandBuffer, vkglTF::RenderFlags::BindImages, m_pipelineLayout, 2);
             }
         }
     }

@@ -32,13 +32,11 @@ struct GlobalUbo {
 };
 
 struct FrameInfo {
-    int frameIndex;
-    float frameTime;
-    VkCommandBuffer commandBuffer;
-    const ICamera& camera;
-    VkDescriptorSet globalDescriptorSet;
-    std::unordered_map<unsigned int, std::shared_ptr<IGameObject>>& gameObjects;
-    IScene& scene;
+    int frameIndex = 0;
+    float frameTime = 0.0f;
+    VkCommandBuffer commandBuffer = VK_NULL_HANDLE;
+    const ICamera* camera = nullptr;
+    VkDescriptorSet globalDescriptorSet = VK_NULL_HANDLE;
     const RenderableRegistry* renderRegistry = nullptr;
 };
 
