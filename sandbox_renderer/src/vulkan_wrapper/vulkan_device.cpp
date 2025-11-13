@@ -86,6 +86,7 @@ void VkSandboxDevice::createLogicalDevice() {
     vulkan13Features.synchronization2 = VK_TRUE;
     vulkan13Features.maintenance4 = VK_TRUE;
     vulkan13Features.robustImageAccess = VK_TRUE;
+	vulkan13Features.shaderDemoteToHelperInvocation = VK_TRUE;
 
     indexingFeatures.pNext = &vulkan13Features;
 

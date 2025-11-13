@@ -31,13 +31,13 @@
     {
         "name": "skybox_hdr",
         "path": "hdr/gcanyon_cube.ktx",
-        "format": "VK_FORMAT_R16G16B16A16_SFLOAT",
-        "environment": true
+        "format": "VK_FORMAT_R16G16B16A16_SFLOAT"
     },
     {
         "name": "skybox_hdr2",
-        "path": "hdr/quadrangle_sunny_4k.hdr",
-        "format": "VK_FORMAT_R16G16B16A16_SFLOAT"
+        "path": "hdr/evening_road_01_puresky_4k.hdr",
+        "format": "VK_FORMAT_R16G16B16A16_SFLOAT",
+        "environment": true
     }
   ]
 

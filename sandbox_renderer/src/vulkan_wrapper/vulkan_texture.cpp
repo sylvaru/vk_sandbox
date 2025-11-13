@@ -384,7 +384,8 @@ void VkSandboxTexture::STBLoadCubemapFromFile(
 		if (!data) throw std::runtime_error("Failed to load LDR image: " + filename);
 		pixels = data;
 		texChannels = 4;
-		format = VK_FORMAT_R8G8B8A8_UNORM;
+		if (format != VK_FORMAT_R16G16B16A16_SFLOAT && format != VK_FORMAT_R32G32B32A32_SFLOAT)
+			format = VK_FORMAT_R16G16B16A16_SFLOAT;	
 	}
 
 	m_width = texWidth;
@@ -761,30 +762,29 @@ void VkSandboxTexture::ConvertEquirectangularToCubemap(VkQueue copyQueue, vkglTF
 	cubeRange.layerCount = 6;
 	tools::setImageLayout(cmdBuf, cubeImage, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, cubeRange);
 
+	glm::mat4 captureProj = glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, 512.0f);
+	captureProj[1][1] *= -1.0f; // Vulkan requires Y flip
+
+
 	std::vector<glm::mat4> matrices = {
-		// +X, -X, +Y (top), -Y (bottom), +Z, -Z
-		glm::lookAt(glm::vec3(0.0f), glm::vec3(1.0f,  0.0f,  0.0f), glm::vec3(0.0f, -1.0f,  0.0f)), // +X
-		glm::lookAt(glm::vec3(0.0f), glm::vec3(-1.0f,  0.0f,  0.0f), glm::vec3(0.0f, -1.0f,  0.0f)), // -X
-		glm::lookAt(glm::vec3(0.0f), glm::vec3(0.0f,  1.0f,  0.0f), glm::vec3(0.0f,  0.0f,  1.0f)), // +Y (top)
-		glm::lookAt(glm::vec3(0.0f), glm::vec3(0.0f, -1.0f,  0.0f), glm::vec3(0.0f,  0.0f, -1.0f)), // -Y (bottom)
-		glm::lookAt(glm::vec3(0.0f), glm::vec3(0.0f,  0.0f,  1.0f), glm::vec3(0.0f, -1.0f,  0.0f)), // +Z
-		glm::lookAt(glm::vec3(0.0f), glm::vec3(0.0f,  0.0f, -1.0f), glm::vec3(0.0f, -1.0f,  0.0f))  // -Z
+		// +X
+		glm::lookAt(glm::vec3(0.0f), glm::vec3(1.0f,  0.0f,  0.0f), glm::vec3(0.0f, -1.0f,  0.0f)),
+		// -X
+		glm::lookAt(glm::vec3(0.0f), glm::vec3(-1.0f,  0.0f,  0.0f), glm::vec3(0.0f, -1.0f,  0.0f)),
+		// +Y (TOP)
+		glm::lookAt(glm::vec3(0.0f), glm::vec3(0.0f, -1.0f,  0.0f), glm::vec3(0.0f,  0.0f, -1.0f)),
+		// -Y (BOTTOM)
+		glm::lookAt(glm::vec3(0.0f), glm::vec3(0.0f,  1.0f,  0.0f), glm::vec3(0.0f,  0.0f,  1.0f)),
+		// +Z
+		glm::lookAt(glm::vec3(0.0f), glm::vec3(0.0f,  0.0f,  1.0f), glm::vec3(0.0f, -1.0f,  0.0f)),
+		// -Z
+		glm::lookAt(glm::vec3(0.0f), glm::vec3(0.0f,  0.0f, -1.0f), glm::vec3(0.0f, -1.0f,  0.0f))
 	};
-	std::swap(matrices[2], matrices[3]);
 
 	VkViewport vp = vkinit::viewport((float)dim, (float)dim, 0.0f, 1.0f);
 	VkRect2D sc = vkinit::rect2D(dim, dim, 0, 0);
 	vkCmdSetViewport(cmdBuf, 0, 1, &vp);
 	vkCmdSetScissor(cmdBuf, 0, 1, &sc);
-
-	glm::mat3 faceRot[6] = {
-	glm::mat3(1.0f), // +X
-	glm::mat3(1.0f), // -X
-	glm::mat3(glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(0,1,0))),  // +Y rotated 90°
-	glm::mat3(glm::rotate(glm::mat4(1.0f), glm::radians(-90.0f), glm::vec3(0,1,0))), // -Y rotated -90°
-	glm::mat3(1.0f), // +Z
-	glm::mat3(1.0f)  // -Z
-	};
 
 	for (uint32_t face = 0; face < 6; ++face) {
 		VkClearValue clearColor{};
@@ -802,13 +802,18 @@ void VkSandboxTexture::ConvertEquirectangularToCubemap(VkQueue copyQueue, vkglTF
 		vkCmdBeginRenderPass(cmdBuf, &rpBI, VK_SUBPASS_CONTENTS_INLINE);
 
 		PushBlock push{};
-		push.mvp = glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, 512.0f) * matrices[face];
-		push.mvp[1][1] *= -1.0f;
+		push.mvp = captureProj * matrices[face];
 
-		pipeline.bind(cmdBuf);
+		vkCmdPushConstants(cmdBuf,
+			pipeline.getPipelineLayout(),
+			VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+			0,
+			sizeof(PushBlock),
+			&push);
+
 		vkCmdBindDescriptorSets(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.getPipelineLayout(), 0, 1, &srcDescriptorSet, 0, nullptr);
-		vkCmdPushConstants(cmdBuf, pipeline.getPipelineLayout(), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PushBlock), &push);
-
+	
+		pipeline.bind(cmdBuf);
 		skyboxModel->bind(cmdBuf);
 		skyboxModel->gltfDraw(cmdBuf);
 

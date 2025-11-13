@@ -17,7 +17,7 @@ add_library(sandbox_engine STATIC
 
 target_include_directories(sandbox_engine
     PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include
-    PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../External/bullet3/src
+    PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../External/cmake_build/bullet3/src
 )
 
 # Link against required libraries

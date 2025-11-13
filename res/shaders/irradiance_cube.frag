@@ -1,3 +1,4 @@
+// irradiance_cube.frag
 #version 450
 
 // Vertex → Fragment interface

@@ -1,12 +1,12 @@
 [submodule "external/spdlog"]
-	path = external/spdlog
-	url = https://github.com/gabime/spdlog.git
+    path = external/cmake_build/spdlog
+    url = https://github.com/gabime/spdlog.git
 [submodule "external/tinyobjloader"]
-	path = external/tinyobjloader
-	url = https://github.com/tinyobjloader/tinyobjloader.git
+    path = external/cmake_build/tinyobjloader
+    url = https://github.com/tinyobjloader/tinyobjloader.git
 [submodule "external/imgui"]
-	path = external/imgui
-	url = https://github.com/ocornut/imgui
-[submodule "External/bullet3"]
-	path = External/bullet3
-	url = https://github.com/bulletphysics/bullet3.git
+    path = external/cmake_build/imgui
+    url = https://github.com/ocornut/imgui
+[submodule "external/bullet3"]
+    path = external/cmake_build/bullet3
+    url = https://github.com/bulletphysics/bullet3.git

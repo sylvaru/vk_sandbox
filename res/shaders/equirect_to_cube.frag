@@ -1,3 +1,4 @@
+// equirectangular_to_cube.frag
 #version 450
 #extension GL_ARB_separate_shader_objects : enable
 
@@ -25,13 +26,6 @@ void main()
 
     // Detect top / bottom faces using the vertex normal (model's face normal)
     // Adjust thresholds if your normals are slightly off axis.
-    if (vNormal.y > 0.9) {
-        // +Y face (top) — rotate right by 90 degrees
-        N = rotY(-0.5 * PI) * N;
-    } else if (vNormal.y < -0.9) {
-        // -Y face (bottom) — rotate left by 90 degrees
-        N = rotY(0.5 * PI) * N;
-    }
 
     // spherical mapping
     float phi   = atan(N.z, N.x);

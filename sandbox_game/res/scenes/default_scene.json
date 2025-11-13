@@ -32,7 +32,7 @@
         "name": "cube",
         "usage": "skybox",
         "model": "cube",
-        "cubemap": "skybox_hdr",
+        "cubemap": "skybox_hdr2",
         "renderSystem": "skybox"
     },
     {
