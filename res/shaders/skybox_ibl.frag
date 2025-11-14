@@ -1,5 +1,6 @@
 #version 450 core
 #extension GL_KHR_vulkan_glsl : enable
+#extension GL_GOOGLE_include_directive : enable
 #include "include/tonemapping.glsl"
 
 layout(set = 1, binding = 0) uniform samplerCube skybox;
