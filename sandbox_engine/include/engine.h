@@ -46,6 +46,7 @@ namespace Core {
         VkSandboxDevice& getDevice() { return m_device; }
         VkSandboxInstance& getInstance() { return m_vkinstance; }
         ISandboxRenderer& renderer() { return m_renderer; }
+        std::unique_ptr<PhysicsEngine> takePhysicsEngine() { return std::move(m_physicsEngine); }
 
         void toggleCursorLock();
         void setupInputCallbacks();
@@ -62,7 +63,7 @@ namespace Core {
         AssetManager                             m_assetManager;
         VkSandboxRenderer                        m_renderer;
         std::shared_ptr<IWindowInput>            m_windowInput;
-		std::unique_ptr<PhysicsEngine>           m_physicsEngine;
+        std::unique_ptr<PhysicsEngine>           m_physicsEngine;
 
         std::vector<std::unique_ptr<ILayer>>     m_layers;
 

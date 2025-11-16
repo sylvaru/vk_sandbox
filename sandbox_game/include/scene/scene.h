@@ -8,6 +8,8 @@
 #include "entities/game_object.h"
 #include "vulkan_wrapper/core/renderable_registry.h"
 #include "physics/physics_engine.h"
+#include "base/engine_scene_base.h"
+
 
 #include <memory>
 #include <vector>
@@ -16,48 +18,26 @@
 #include <optional>
 
 
+// SandboxScene is a game level scene (loads JSON scene file, creates game objects, player spawn, etc)
+// SandboxScene uses EngineSceneBase to register objects into the engine
 
-struct CollisionSphere {
-	glm::vec3 center{ 0.f };
-	float radius{ 1.f };
-};
-
-
-class SandboxScene : public IScene {
+class SandboxScene : public EngineSceneBase {
 public:
-	SandboxScene(std::shared_ptr<IWindowInput> input, Core::AssetManager& assetManager);      // pass input so your Player can read it
-	void init() override;                 // load models, spawn entities
-	void update(float dt) override;        // advance all entities
+	SandboxScene(std::shared_ptr<IWindowInput> input,
+		Core::AssetManager& assetManager);
+
+	void init() override;
+	void update(float dt) override;
 
 	void loadSceneFile(const std::string& fileName);
 
-	std::unordered_map<unsigned int, std::shared_ptr<IGameObject>>&
-		getGameObjects() override { return m_gameObjects; }
-
-
-	std::pair<glm::mat4, glm::mat4> getMainCameraMatrices()const;
-
-	void setSkyboxObject(std::shared_ptr<IGameObject> obj) {
-		m_skyboxId = obj->getId();
-		m_skyboxObject = std::move(obj);
-	}
-
+	// Camera
 	SandboxCamera& getCamera();
+	std::pair<glm::mat4, glm::mat4> getMainCameraMatrices() const;
 
-	void addGameObject(uint32_t id, SandboxGameObject obj);
-	void removeGameObject(uint32_t id);
-
-	std::optional<std::reference_wrapper<IGameObject>>
-		getSkyboxObject() const override;
-
-	std::optional<std::reference_wrapper<SandboxGameObject>>
-		getSkyboxObject();
-
+	// Skybox name (configured when loading scenes)
 	std::string getSkyboxCubemapName() const {
 		return m_skyboxCubemapName;
-	}
-	const RenderableRegistry* getRenderableRegistry() const override {
-		return &m_renderRegistry;
 	}
 
 private:
@@ -65,7 +45,7 @@ private:
 	Core::AssetManager& m_assetManager;
 
 	std::vector<std::shared_ptr<SandboxPlayer>> m_players;
-	std::unordered_map<uint32_t, std::shared_ptr<IGameObject>>  m_gameObjects;
+
 
 	glm::vec3 m_initialCameraPosition{ 0.f };
 	glm::vec3 m_initialCameraRotation{ 0.f };
@@ -83,23 +63,11 @@ private:
 	bool m_bIsObj = false;
 	bool m_bIsGltf = false;
 
-	RenderableRegistry m_renderRegistry;
-	std::unordered_map<uint32_t, RenderableID> m_goRenderable;
+	void attachRenderable(
+		std::shared_ptr<IGameObject> go,
+		RenderableType overrideType = RenderableType::None
+	);
 
 
-	RenderableID createRenderableForGameObject(
-		uint32_t gameObjectId,
-		uint32_t meshIndex, uint32_t materialIndex,
-		const TransformData& t,
-		const glm::vec3& bsCenter, float bsRadius,
-		RenderableType type);
-
-	void removeRenderableForGameObject(uint32_t gameObjectId);
-
-	//PhysicsEngine& m_physicsEngine;
-	std::vector<btRigidBody*> m_rigidBodies;
-	
-	void addRigidBody(btRigidBody* body);
-	void removeRigidBody(btRigidBody* body);
 };
 

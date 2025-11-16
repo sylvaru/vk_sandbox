@@ -78,10 +78,6 @@ namespace Core {
             for (auto& layer : m_layers) {
                 layer->onUpdate(static_cast<float>(deltaTime));
             }
-            // Step physics after logic updates, before rendering
-            if (m_physicsEngine) {
-                m_physicsEngine->stepSimulation(static_cast<float>(deltaTime));
-            }
 
             IScene* scene = pickTopScene();
 

@@ -7,6 +7,3 @@
 [submodule "external/imgui"]
     path = external/cmake_build/imgui
     url = https://github.com/ocornut/imgui
-[submodule "external/bullet3"]
-    path = external/cmake_build/bullet3
-    url = https://github.com/bulletphysics/bullet3.git

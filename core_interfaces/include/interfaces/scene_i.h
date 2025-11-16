@@ -1,6 +1,6 @@
 // IScene.h
 #pragma once
-
+#include <stdexcept>
 #include <unordered_map>
 #include <memory>
 #include "interfaces/game_object_i.h"
@@ -22,10 +22,19 @@ struct IScene {
 
     virtual void update(float deltaTime) = 0;
     
-    virtual ICamera& getCamera() = 0;
+    virtual ICamera& getCamera() {
+        throw std::runtime_error("IScene::getCamera() not implemented.");
+    }
 
     virtual std::unordered_map<unsigned int, std::shared_ptr<IGameObject>>&
-        getGameObjects() = 0;
+        getGameObjects() {
+        static std::unordered_map<unsigned int, std::shared_ptr<IGameObject>> dummy;
+        return dummy;
+    }
+
+    virtual std::string getSkyboxCubemapName() const {
+        return "";
+    }
 
     virtual std::optional<std::reference_wrapper<IGameObject>>
         getSkyboxObject() const
@@ -33,5 +42,5 @@ struct IScene {
         return std::nullopt;
     }
     virtual const RenderableRegistry* getRenderableRegistry() const { return nullptr; }
-    virtual std::string getSkyboxCubemapName() const = 0;
+ 
 };

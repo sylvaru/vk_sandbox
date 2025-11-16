@@ -22,15 +22,15 @@ public:
         float sensitivity = 0.15f,
         float moveSpeed = 4.0f);
 
-	void onInit() override;
-	void onUpdate(float deltaTime) override;
+    void onInit() override;
+    void onUpdate(float deltaTime) override;
 
     TransformComponent& getTransform() override;
 
     std::shared_ptr<IModel> getModel() const override;
     SandboxCamera& getCamera();
 
- 
+
 
 private:
     std::shared_ptr<IWindowInput>       m_pInput;

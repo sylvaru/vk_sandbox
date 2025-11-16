@@ -13,7 +13,7 @@ SandboxPlayer::SandboxPlayer(std::shared_ptr<IWindowInput> input,
     , m_camera(startPos, glm::degrees(startRotRad).y, glm::degrees(startRotRad).x, fov)
     , m_mouseSensitivity(sensitivity)
     , m_moveSpeed(moveSpeed)
-    , m_controller(moveSpeed, sensitivity) // <- propagate into controller
+    , m_controller(moveSpeed, sensitivity)
 {
     m_transform.translation = startPos;
     m_transform.rotation = startRotRad;
@@ -47,7 +47,7 @@ TransformComponent& SandboxPlayer::getTransform() {
 }
 
 std::shared_ptr<IModel> SandboxPlayer::getModel() const {
-    return nullptr; 
+    return nullptr;
 }
 
 

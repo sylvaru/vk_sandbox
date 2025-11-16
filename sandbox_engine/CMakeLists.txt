@@ -13,11 +13,13 @@ add_library(sandbox_engine STATIC
     src/asset_manager.cpp
     include/physics/physics_engine.h
     src/physics/physics_engine.cpp
+    include/base/engine_scene_base.h 
+    src/base/engine_scene_base.cpp 
 )
 
 target_include_directories(sandbox_engine
-    PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include
-    PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../External/cmake_build/bullet3/src
+    PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
 # Link against required libraries
@@ -27,8 +29,4 @@ target_link_libraries(sandbox_engine
     PRIVATE spdlog::spdlog
     PRIVATE glfw
     PRIVATE json
-    PRIVATE BulletDynamics
-    PRIVATE BulletCollision
-    PRIVATE LinearMath
-    PRIVATE Bullet3Common
 )
