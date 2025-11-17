@@ -1,10 +1,2 @@
-/build
-/bin
-
-/.vs
-.vs/
-bin/
-build/
-out/
-/out
+.vs
 out
