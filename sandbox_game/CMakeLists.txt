@@ -32,3 +32,37 @@ target_link_libraries(sandbox_game
         glm
         json
 )
+
+# ---------------------------------------------------------
+# PhysX library + DLL root
+# ---------------------------------------------------------
+set(PHYSX_DLL_ROOT
+    ${CMAKE_SOURCE_DIR}/external/cmake_build/physx/physx/bin/win.x86_64.vc143.md
+)
+
+target_link_directories(sandbox_game PRIVATE
+    $<$<CONFIG:Debug>:${PHYSX_DLL_ROOT}/debug>
+    $<$<CONFIG:Release>:${PHYSX_DLL_ROOT}/release>
+)
+
+# ---------------------------------------------------------
+# Copy PhysX runtime DLLs
+# ---------------------------------------------------------
+function(copy_physx_dlls TARGET)
+    foreach(dll
+        PhysX_64.dll
+        PhysXCommon_64.dll
+        PhysXCooking_64.dll
+        PhysXFoundation_64.dll
+    )
+        add_custom_command(TARGET ${TARGET} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                $<$<CONFIG:Debug>:"${PHYSX_DLL_ROOT}/debug/${dll}">
+                $<$<CONFIG:Release>:"${PHYSX_DLL_ROOT}/release/${dll}">
+                $<TARGET_FILE_DIR:${TARGET}>
+            COMMENT "Copying PhysX DLL: ${dll}"
+        )
+    endforeach()
+endfunction()
+
+copy_physx_dlls(sandbox_game)

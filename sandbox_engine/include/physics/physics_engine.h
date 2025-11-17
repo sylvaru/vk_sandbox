@@ -11,6 +11,7 @@ class PhysicsEngine {
 public:
     PhysicsEngine();
 
+    void initPhysx();
     void stepSimulation(float deltaTime);
 
 };

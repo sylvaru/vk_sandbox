@@ -20,13 +20,23 @@ add_library(sandbox_engine STATIC
 target_include_directories(sandbox_engine
     PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${CMAKE_SOURCE_DIR}/external/cmake_build/physx/physx/include
 )
 
-# Link against required libraries
 target_link_libraries(sandbox_engine
     PUBLIC core_interfaces
     PUBLIC sandbox_renderer
-    PRIVATE spdlog::spdlog
-    PRIVATE glfw
-    PRIVATE json
+    PUBLIC spdlog::spdlog
+    PUBLIC glfw
+    PUBLIC json
+
+    # PhysX libs
+    PUBLIC PhysX_64
+    PUBLIC PhysXCommon_64
+    PUBLIC PhysXCooking_64
+    PUBLIC PhysXExtensions_static_64
+    PUBLIC PhysXFoundation_64
+    PUBLIC PhysXCharacterKinematic_static_64
 )
+
+

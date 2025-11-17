@@ -6,6 +6,7 @@ void EngineSceneBase::init()
     for (auto& [id, obj] : m_gameObjects) {
         obj->onInit();
     }
+    m_physicsEngine->initPhysx();
 }
 void EngineSceneBase::update(float dt)
 {
@@ -30,8 +31,6 @@ void EngineSceneBase::removeGameObject(uint32_t id)
     removeRenderable(id);
     m_gameObjects.erase(id);
 }
-
-
 
 void EngineSceneBase::clearScene()
 {
@@ -65,7 +64,6 @@ RenderableID EngineSceneBase::createRenderable(
 
     auto& go = it->second;
 
-    // If it has a model, pass correct vkglTF::Model* to registry
     if (auto model = go->getModel()) {
 
         // Only vkglTF::Model is supported by RenderableRegistry
@@ -76,8 +74,6 @@ RenderableID EngineSceneBase::createRenderable(
 
     return rid;
 }
-
-
 
 void EngineSceneBase::removeRenderable(uint32_t id)
 {

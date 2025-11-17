@@ -28,11 +28,9 @@ void SandboxScene::init() {
         m_initialPlayerMoveSpeed
     );
 
-    player->onInit();
 
     m_players.push_back(player);
     m_gameObjects[player->getId()] = player;
-
 
     spdlog::info("Spawned player at ({:.2f}, {:.2f}, {:.2f}), rot (deg) ({:.2f}, {:.2f}, {:.2f}), fov {:.1f}, sens {:.2f}, speed {:.2f}",
         m_initialPlayerPosition.x, m_initialPlayerPosition.y, m_initialPlayerPosition.z,
@@ -41,20 +39,16 @@ void SandboxScene::init() {
         glm::degrees(m_initialPlayerRotation.z),
         m_initialPlayerFov, m_initialPlayerSensitivity, m_initialPlayerMoveSpeed);
 
+    EngineSceneBase::init();
 }
 void SandboxScene::update(float dt) {
-    for (auto& player : m_players) {
-        player->onUpdate(dt);
-    }
 
     EngineSceneBase::update(dt);
 }
 void SandboxScene::loadSceneFile(const std::string& fileName)
 {
-
     // Remove previous scene content
     clearScene();
-
 
     const std::string path =
         std::string(PROJECT_ROOT_DIR) +
