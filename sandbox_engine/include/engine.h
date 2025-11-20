@@ -11,6 +11,8 @@
 #include "asset_manager.h"
 #include "physics/physics_engine.h"
 
+#include <spdlog/spdlog.h>
+
 namespace Core {
 
     struct EngineSpecification {
@@ -21,6 +23,7 @@ namespace Core {
             uint32_t Height = 1080;
         } windowSpec;
     };
+
     class SandboxEngine {
     public:
        
@@ -28,7 +31,6 @@ namespace Core {
         ~SandboxEngine();
 
         void initialize();
-        void initLayer(ILayer* game);
         void runApp();
 
         template<typename T, typename... Args>
@@ -39,22 +41,26 @@ namespace Core {
             layer->onAttach(this);
             m_layers.push_back(std::move(layer));
         }
-        std::shared_ptr<IWindowInput> getInputSharedPtr() {
-            return m_windowInput;
-        }
+
         AssetManager& getAssetManager() { return m_assetManager; }
         VkSandboxDevice& getDevice() { return m_device; }
         VkSandboxInstance& getInstance() { return m_vkinstance; }
         ISandboxRenderer& renderer() { return m_renderer; }
+
+        std::shared_ptr<IWindowInput> getInputSharedPtr() { return m_windowInput; }
         std::unique_ptr<PhysicsEngine> takePhysicsEngine() { return std::move(m_physicsEngine); }
 
         void toggleCursorLock();
         void setupInputCallbacks();
         void processInput();
 
-        bool m_cursorLocked = true;
+        // Active scene API: layers can notify engine which scene should be considered active
+        void setActiveScene(IScene* scene, ILayer* owner = nullptr);
 
-    
+        IScene* getActiveScene() const { return m_activeScene; }
+
+        const bool isCursorLocked() { return m_cursorLocked; }
+
     private:
         EngineSpecification                      m_engineSpec;
         SandboxWindow                            m_window;
@@ -67,5 +73,12 @@ namespace Core {
 
         std::vector<std::unique_ptr<ILayer>>     m_layers;
 
+        IScene*                                  m_activeScene = nullptr;
+        ILayer*                                  m_activeSceneOwner = nullptr;
+
+        // Misc
+        bool                                     m_cursorLocked = true;
     };
+
+ 
 }

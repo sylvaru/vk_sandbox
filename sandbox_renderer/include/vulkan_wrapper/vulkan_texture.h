@@ -17,6 +17,7 @@
 
 #include "ktx.h"
 #include "ktxvulkan.h"
+#include <stb_image.h>
 
 
 class VkSandboxDevice;

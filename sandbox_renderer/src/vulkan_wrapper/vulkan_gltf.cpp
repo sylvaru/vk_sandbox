@@ -1315,7 +1315,20 @@ void  vkglTF::Model::loadFromFile(std::string filename, VkSandboxDevice* device,
 		}
 	}
 
+
 	generateTangents(vertexBuffer, indexBuffer);
+
+	cpuPositions.clear();
+	cpuIndices.clear();
+	cpuPositions.reserve(vertexBuffer.size());
+	cpuIndices.reserve(vertexBuffer.size());
+
+	for (size_t i = 0; i < vertexBuffer.size(); i++) {
+		const Vertex& v = vertexBuffer[i];
+		cpuPositions.emplace_back(v.pos);
+	}
+	cpuIndices = indexBuffer;
+
 
 	size_t vertexBufferSize = vertexBuffer.size() * sizeof(Vertex);
 	size_t indexBufferSize = indexBuffer.size() * sizeof(uint32_t);

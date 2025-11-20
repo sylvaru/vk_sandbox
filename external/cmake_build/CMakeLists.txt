@@ -69,10 +69,6 @@ target_include_directories(imgui PUBLIC
 
 target_link_libraries(imgui PUBLIC Vulkan::Vulkan glfw)
 
-# ==========================================================
-# physx
-# ==========================================================
-#add_subdirectory(physx)
 
 # ==========================================================
 # KTX

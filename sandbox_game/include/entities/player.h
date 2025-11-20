@@ -6,7 +6,7 @@
 #include "transform_component.h"
 #include "camera/camera.h"
 #include "interfaces/renderer_i.h"
-
+#include "physics/physics_engine.h"
 
 
 #include <glm/glm.hpp>
@@ -20,7 +20,8 @@ public:
         const glm::vec3& startRotDeg = glm::vec3(0.f),
         float fov = 60.f,
         float sensitivity = 0.15f,
-        float moveSpeed = 4.0f);
+        float moveSpeed = 4.0f,
+        PhysicsEngine* physics = nullptr);
 
     void onInit() override;
     void onUpdate(float deltaTime) override;
@@ -37,6 +38,7 @@ private:
     TransformComponent m_transform;
     SandboxCamera m_camera;
     SandboxMNKController m_controller;
+    PhysicsEngine* m_physics;
 
     // Configuration
     float m_mouseSensitivity = 0.15f;

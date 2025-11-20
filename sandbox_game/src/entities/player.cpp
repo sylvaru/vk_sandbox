@@ -8,12 +8,14 @@ SandboxPlayer::SandboxPlayer(std::shared_ptr<IWindowInput> input,
     const glm::vec3& startRotRad,
     float fov,
     float sensitivity,
-    float moveSpeed)
+    float moveSpeed,
+    PhysicsEngine* physics)
     : m_pInput(std::move(input))
     , m_camera(startPos, glm::degrees(startRotRad).y, glm::degrees(startRotRad).x, fov)
     , m_mouseSensitivity(sensitivity)
     , m_moveSpeed(moveSpeed)
-    , m_controller(moveSpeed, sensitivity)
+    , m_controller(moveSpeed, sensitivity, physics)
+    , m_physics(physics)
 {
     m_transform.translation = startPos;
     m_transform.rotation = startRotRad;
@@ -23,6 +25,9 @@ void SandboxPlayer::onInit() {
     m_controller.mouseCallback(glm::vec2(0.f)); // reset delta
     const glm::vec3 rot = m_transform.rotation;
     m_controller.setOrientation(glm::degrees(rot.y), glm::degrees(rot.x));
+
+    m_physics->createFPScontroller(m_transform.translation, 0.3f, 1.8f);
+    m_controller.setPhysicsController(m_physics->getFPScontroller());
 }
 
 void SandboxPlayer::onUpdate(float dt) {

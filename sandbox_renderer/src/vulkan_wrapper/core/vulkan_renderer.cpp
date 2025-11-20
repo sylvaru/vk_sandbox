@@ -21,7 +21,7 @@ VkSandboxRenderer::~VkSandboxRenderer() {
 }
 void VkSandboxRenderer::createGlobalDescriptorObjects() {
 
-
+    // TODO: stop using magic numbers here
     m_pool = VkSandboxDescriptorPool::Builder{ m_device }
         .setMaxSets(FrameCount + 512)
         .addPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, FrameCount)
@@ -93,11 +93,6 @@ void VkSandboxRenderer::initializeSystems(
         auto cubemapName = skyObj.getCubemapTextureName();
         try {
             VkDescriptorImageInfo cubemapDesc = provider.getCubemapDescriptor(cubemapName);
-
-            spdlog::info("[Renderer] got cubemapDesc: view=0x{:x}, sampler=0x{:x}, layout={}",
-                (uintptr_t)cubemapDesc.imageView,
-                (uintptr_t)cubemapDesc.sampler,
-                (int)cubemapDesc.imageLayout);
 
             if (cubemapDesc.imageView == VK_NULL_HANDLE || cubemapDesc.sampler == VK_NULL_HANDLE) {
                 spdlog::error("[Renderer] cubemap descriptor has null view or sampler! This will produce garbage in shader.");
@@ -479,15 +474,17 @@ void VkSandboxRenderer::initImGui(
 }
 
 
-void VkSandboxRenderer::beginImGuiFrame() {
+const void VkSandboxRenderer::beginImGuiFrame() {
     if (!m_imguiInitialized) return;
 
     ImGui_ImplVulkan_NewFrame();
     ImGui_ImplGlfw_NewFrame();
+
     ImGui::NewFrame();
+
 }
 
-void VkSandboxRenderer::renderImGui(FrameContext& frame) {
+const void VkSandboxRenderer::renderImGui(FrameContext& frame) {
     if (!m_imguiInitialized) return;
     ImGui::Render();
     ImDrawData* draw_data = ImGui::GetDrawData();

@@ -12,12 +12,13 @@
 using json = nlohmann::json;
 
 SandboxScene::SandboxScene(std::shared_ptr<IWindowInput> input, Core::AssetManager& assetManager)
-	: m_pInput(std::move(input)), m_assetManager(assetManager) 
+	: EngineSceneBase(&assetManager)
+    , m_pInput(std::move(input))
+    , m_assetManager(assetManager) 
 {
 }
 
-void SandboxScene::init() {
-    spdlog::info("Initializing SandboxScene...");
+void SandboxScene::initSceneData() {
 
     auto player = std::make_shared<SandboxPlayer>(
         m_pInput,
@@ -25,7 +26,8 @@ void SandboxScene::init() {
         m_initialPlayerRotation,
         m_initialPlayerFov,
         m_initialPlayerSensitivity,
-        m_initialPlayerMoveSpeed
+        m_initialPlayerMoveSpeed,
+        m_physicsEngine.get()
     );
 
 
@@ -39,15 +41,15 @@ void SandboxScene::init() {
         glm::degrees(m_initialPlayerRotation.z),
         m_initialPlayerFov, m_initialPlayerSensitivity, m_initialPlayerMoveSpeed);
 
-    EngineSceneBase::init();
+    init();
 }
 void SandboxScene::update(float dt) {
-
     EngineSceneBase::update(dt);
 }
 void SandboxScene::loadSceneFile(const std::string& fileName)
 {
-    // Remove previous scene content
+    initPhysics();
+    
     clearScene();
 
     const std::string path =
@@ -241,7 +243,7 @@ void SandboxScene::loadSceneFile(const std::string& fileName)
         if (go->getModel())
             attachRenderable(go, rtype);
     }
-
+    initSceneData();
     spdlog::info("Scene loaded.");
 }
 

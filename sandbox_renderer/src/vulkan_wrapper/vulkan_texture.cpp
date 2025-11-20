@@ -3,7 +3,6 @@
 #include "vulkan_wrapper/vulkan_pipeline.h"
 
 #include <spdlog/spdlog.h>
-#include <stb_image.h>
 #include <stdexcept>
 
 
@@ -536,12 +535,11 @@ void VkSandboxTexture::ConvertEquirectangularToCubemap(VkQueue copyQueue, vkglTF
 	if (!skyboxModel)
 		throw std::runtime_error("ConvertEquirectangularToCubemap: missing skybox model");
 
-	// --------------- Config ---------------
 	const VkFormat targetFormat = VK_FORMAT_R32G32B32A32_SFLOAT;
 	const uint32_t dim = 512;
-	const uint32_t numMips = 1; // base level only for conversion
+	const uint32_t numMips = 1;
 
-	// Save the original source descriptor and view (we will sample from this)
+	// Save the original source descriptor and view
 	VkDescriptorImageInfo srcDescriptor = m_descriptor;
 	VkImage srcImage = m_image;
 	VkImageView srcView = m_view;
@@ -549,12 +547,12 @@ void VkSandboxTexture::ConvertEquirectangularToCubemap(VkQueue copyQueue, vkglTF
 	uint32_t srcMipLevels = m_mipLevels;
 	uint32_t srcLayerCount = m_layerCount;
 
-	// --------------- Create target cubemap (temporary) ---------------
+	// Create target cubemap
 	VkImage cubeImage = VK_NULL_HANDLE;
 	VkDeviceMemory cubeMemory = VK_NULL_HANDLE;
 	VkImageView cubeView = VK_NULL_HANDLE;
 	VkSampler cubeSampler = VK_NULL_HANDLE;
-	VkDescriptorImageInfo cubeDescriptor{}; // will fill later
+	VkDescriptorImageInfo cubeDescriptor{};
 
 	// create image
 	VkImageCreateInfo imageCI = vkinit::imageCreateInfo();
@@ -578,7 +576,7 @@ void VkSandboxTexture::ConvertEquirectangularToCubemap(VkQueue copyQueue, vkglTF
 	VK_CHECK_RESULT(vkAllocateMemory(m_pDevice->device(), &cubeAlloc, nullptr, &cubeMemory));
 	VK_CHECK_RESULT(vkBindImageMemory(m_pDevice->device(), cubeImage, cubeMemory, 0));
 
-	// cube view & sampler
+	// Cube view & sampler
 	{
 		VkImageViewCreateInfo viewCI = vkinit::imageViewCreateInfo();
 		viewCI.viewType = VK_IMAGE_VIEW_TYPE_CUBE;
@@ -607,7 +605,7 @@ void VkSandboxTexture::ConvertEquirectangularToCubemap(VkQueue copyQueue, vkglTF
 		cubeDescriptor = vkinit::descriptorImageInfo(cubeSampler, cubeView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	}
 
-	// --------------- Create offscreen 2D render target ---------------
+	// Create offscreen 2D render target
 	VkImage offImage = VK_NULL_HANDLE;
 	VkDeviceMemory offMemory = VK_NULL_HANDLE;
 	VkImageView offView = VK_NULL_HANDLE;
@@ -643,7 +641,7 @@ void VkSandboxTexture::ConvertEquirectangularToCubemap(VkQueue copyQueue, vkglTF
 		VK_CHECK_RESULT(vkCreateImageView(m_pDevice->device(), &offViewCI, nullptr, &offView));
 	}
 
-	// --------------- Renderpass & framebuffer ---------------
+	// Renderpass & framebuffer
 	VkAttachmentDescription attDesc{};
 	attDesc.format = targetFormat;
 	attDesc.samples = VK_SAMPLE_COUNT_1_BIT;
@@ -679,7 +677,7 @@ void VkSandboxTexture::ConvertEquirectangularToCubemap(VkQueue copyQueue, vkglTF
 		VK_CHECK_RESULT(vkCreateFramebuffer(m_pDevice->device(), &fbCI, nullptr, &framebuffer));
 	}
 
-	// --------------- Descriptor for source equirectangular texture ---------------
+	// Descriptor for source equirectangular texture
 	// IMPORTANT: use the original source descriptor (srcDescriptor) so the shader sees a 2D view
 	// Make sure the source is in SHADER_READ_ONLY layout before binding and sampling
 	VkCommandBuffer layoutCmd = m_pDevice->createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);
@@ -715,12 +713,11 @@ void VkSandboxTexture::ConvertEquirectangularToCubemap(VkQueue copyQueue, vkglTF
 		VkDescriptorSetAllocateInfo allocInfo = vkinit::descriptorSetAllocateInfo(srcDescriptorPool, &srcDescLayout, 1);
 		VK_CHECK_RESULT(vkAllocateDescriptorSets(m_pDevice->device(), &allocInfo, &srcDescriptorSet));
 
-		// NOTE: use srcDescriptor (saved earlier) here
 		VkWriteDescriptorSet write = vkinit::writeDescriptorSet(srcDescriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 0, &srcDescriptor);
 		vkUpdateDescriptorSets(m_pDevice->device(), 1, &write, 0, nullptr);
 	}
 
-	// --------------- Pipeline layout / pipeline (push constant mvp) ---------------
+	// Pipeline layout / pipeline (push constant mvp)
 	struct PushBlock { 
 		glm::mat4 mvp; 
 	};
@@ -750,7 +747,6 @@ void VkSandboxTexture::ConvertEquirectangularToCubemap(VkQueue copyQueue, vkglTF
 	std::string frag = std::string(PROJECT_ROOT_DIR) + "/res/shaders/spirV/equirect_to_cube.frag.spv";
 	VkSandboxPipeline pipeline{ *m_pDevice, vert, frag, cfg };
 
-	// --------------- Command buffer: render each face ---------------
 	VkCommandBuffer cmdBuf = m_pDevice->createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);
 
 	// Transition cube image to TRANSFER_DST for copies
@@ -853,7 +849,7 @@ void VkSandboxTexture::ConvertEquirectangularToCubemap(VkQueue copyQueue, vkglTF
 	// submit and wait
 	m_pDevice->flushCommandBuffer(cmdBuf, copyQueue, true);
 
-	// --------------- Replace this texture's GPU data with the new cubemap ---------------
+	// Replace this texture's GPU data with the new cubemap
 	// destroy old resources that belong to this object (but do NOT destroy the source image/view that are managed externally if you rely on them elsewhere)
 	if (m_view != VK_NULL_HANDLE) vkDestroyImageView(m_pDevice->device(), m_view, nullptr);
 	if (m_image != VK_NULL_HANDLE) vkDestroyImage(m_pDevice->device(), m_image, nullptr);

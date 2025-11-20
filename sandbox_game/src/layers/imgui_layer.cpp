@@ -7,6 +7,9 @@
 void ImGuiLayer::onAttach(Core::SandboxEngine* engine) {
     m_engine = engine;
     m_prenderer = &static_cast<VkSandboxRenderer&>(m_engine->renderer());
+    m_windowInput = m_engine->getInputSharedPtr();
+    m_assetManager = &m_engine->getAssetManager();
+
     auto& device = m_engine->getDevice();
  
     m_prenderer->initImGui(
@@ -19,10 +22,7 @@ void ImGuiLayer::onAttach(Core::SandboxEngine* engine) {
 }
 void ImGuiLayer::onInit()
 {
-    m_windowInput = m_engine->getInputSharedPtr();
-    m_assetManager = &m_engine->getAssetManager();
-    spdlog::info("MyGameLayer::onInit");
-
+    spdlog::info("ImGuiLayer::onInit");
 }
 
 void ImGuiLayer::onUpdate(float dt)
@@ -31,14 +31,12 @@ void ImGuiLayer::onUpdate(float dt)
 
 void ImGuiLayer::onRender(ISandboxRenderer::FrameContext& frame) {
 
-    m_prenderer->beginImGuiFrame();
+    m_prenderer->beginImGuiFrame(); 
+    ImGui::SetNextWindowSize(ImVec2(300, 120), ImGuiCond_FirstUseEver);
     ImGui::Begin("Engine Debug");
     ImGui::Text("FPS: %.1f", ImGui::GetIO().Framerate);
     ImGui::End();
-
 }
-
-
 
 IScene* ImGuiLayer::getSceneInterface() {
     return nullptr;

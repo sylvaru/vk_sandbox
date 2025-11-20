@@ -1,7 +1,6 @@
 // sandbox_engine/src/engine.cpp
 #include "engine.h"
 #include "key_codes.h"
-#include "spdlog/spdlog.h"
 #include "frame_info.h"
 #include <thread>
 #include <chrono>
@@ -20,11 +19,9 @@ namespace Core {
 		, m_physicsEngine(std::make_unique<PhysicsEngine>())
 	{
 		m_assetManager.preloadGlobalAssets();
-		initialize();
 	}
-	SandboxEngine::~SandboxEngine() {
+    SandboxEngine::~SandboxEngine() {}
 
-	}
 	void SandboxEngine::initialize() {
 		if (auto* userData = static_cast<WindowUserData*>(m_windowInput->getWindowUserPointer())) {
 			userData->input = m_windowInput.get();
@@ -32,7 +29,13 @@ namespace Core {
 		m_windowInput->lockCursor(m_cursorLocked);
 		setupInputCallbacks();
 
- 
+        for (auto& layer : m_layers) {
+            layer->onInit();
+            if (IScene* s = layer->getSceneInterface()) {
+                m_renderer.initializeSystems(m_assetManager, *s);
+            }
+        }
+
 		spdlog::info("Engine initialized");
 	}
 
@@ -43,27 +46,19 @@ namespace Core {
             return;
         }
 
-        // Initialize all layers
-        for (auto& layer : m_layers) {
-            layer->onInit();
-            // If layer has a scene, initialize renderer systems for it
-            if (IScene* s = layer->getSceneInterface()) {
-                m_renderer.initializeSystems(m_assetManager, *s);
+        // Fallback scanning function used only when cache is empty/invalid
+        auto scanForTopScene = [&]() -> IScene* {
+            for (auto it = m_layers.rbegin(); it != m_layers.rend(); ++it) {
+                if (IScene* s = (*it)->getSceneInterface()) return s;
             }
-        }
+            return nullptr;
+            };
 
         using clock = std::chrono::high_resolution_clock;
         using duration_t = std::chrono::duration<double>;
         constexpr double TARGET_FPS = 300.0;
         constexpr double TARGET_FRAME_TIME = 1.0 / TARGET_FPS;
         auto lastTime = clock::now();
-
-        auto pickTopScene = [&]() -> IScene* {
-            for (auto it = m_layers.rbegin(); it != m_layers.rend(); ++it) {
-                if (IScene* s = (*it)->getSceneInterface()) return s;
-            }
-            return nullptr;
-            };
 
         while (!m_windowInput->isWindowShouldClose()) {
 
@@ -79,7 +74,11 @@ namespace Core {
                 layer->onUpdate(static_cast<float>(deltaTime));
             }
 
-            IScene* scene = pickTopScene();
+            // Determine active scene: prefer cached pointer, fallback to scan
+            IScene* scene = m_activeScene;
+            if (!scene && !m_activeSceneOwner) {
+                scene = scanForTopScene();
+            }
 
             if (scene) {
                 ISandboxRenderer::FrameContext frame = m_renderer.beginFrame();
@@ -114,7 +113,6 @@ namespace Core {
 
                 // Main render graph sequence
                 m_renderer.renderSystems(info, frame);
-
 
                 if (m_renderer.isImGuiInitialized()) {
                     ImGui::UpdatePlatformWindows();
@@ -151,13 +149,12 @@ namespace Core {
         }
     }
 
-
-	inline void SandboxEngine::toggleCursorLock() {
+	void SandboxEngine::toggleCursorLock() {
 		m_cursorLocked = !m_cursorLocked;
 		m_windowInput->lockCursor(m_cursorLocked);
 	}
 
-	inline void SandboxEngine::setupInputCallbacks() {
+	void SandboxEngine::setupInputCallbacks() {
 		m_windowInput->setKeyCallback([this](SandboxKey key, int scancode, KeyAction action, int mods) {
 			if (key == SandboxKey::LEFT_ALT && action == KeyAction::PRESS) {
 				toggleCursorLock();
@@ -165,10 +162,32 @@ namespace Core {
 			});
 	}
 
-	inline void SandboxEngine::processInput() {
+	void SandboxEngine::processInput() {
 
 		if (m_windowInput && m_windowInput->isKeyPressed(SandboxKey::ESCAPE)) {
 			m_windowInput->requestWindowClose();
 		}
 	}
+
+    void SandboxEngine::setActiveScene(IScene* scene, ILayer* owner) {
+        if (scene) {
+            // Set/claim an active scene
+            m_activeScene = scene;
+            m_activeSceneOwner = owner;
+            spdlog::debug("[Engine] setActiveScene: scene={} owner={} (claim)", fmt::ptr(scene), fmt::ptr(owner));
+        }
+        else {
+            // Clearing the active scene: only allow if the caller is the owner (or if there is no owner)
+            if (m_activeSceneOwner == nullptr || owner == m_activeSceneOwner) {
+                spdlog::debug("[Engine] setActiveScene: scene=nullptr owner={} (cleared)", fmt::ptr(owner));
+                m_activeScene = nullptr;
+                m_activeSceneOwner = nullptr;
+            }
+            else {
+                // Deny clears from non-owners and log it so we can find the caller
+                spdlog::warn("[Engine] Ignored setActiveScene(nullptr) from owner={} while current owner={} remains. (ptrs)",
+                    fmt::ptr(owner), fmt::ptr(m_activeSceneOwner));
+            }
+        }
+    }
 }

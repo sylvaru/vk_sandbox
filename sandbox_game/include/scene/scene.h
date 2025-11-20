@@ -26,9 +26,10 @@ public:
 	SandboxScene(std::shared_ptr<IWindowInput> input,
 		Core::AssetManager& assetManager);
 
-	void init() override;
+	void init() override { EngineSceneBase::init(); }
 	void update(float dt) override;
 
+	void initSceneData();
 	void loadSceneFile(const std::string& fileName);
 
 	// Camera

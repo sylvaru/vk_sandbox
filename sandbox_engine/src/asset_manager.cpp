@@ -2,11 +2,8 @@
 #include "asset_manager.h"
 
 #include <json.hpp>
-#include <fstream>
 #include <spdlog/spdlog.h>
 #include <glm/glm.hpp>
-#include <stb_image.h>
-
 
 #include "common_tools.h"
 

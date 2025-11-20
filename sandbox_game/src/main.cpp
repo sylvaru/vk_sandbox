@@ -16,9 +16,8 @@ int main()
 
     engine.pushLayer<MyGameLayer>();
     engine.pushLayer<ImGuiLayer>();
-
+    engine.initialize();
     engine.runApp();
-
 
     return 0;
 }

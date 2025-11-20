@@ -279,6 +279,10 @@ namespace vkglTF {
 		std::vector<Material> m_materials;
 		std::vector<Animation> m_animations;
 
+		std::vector<glm::vec3> cpuPositions;
+		std::vector<uint32_t> cpuIndices;
+
+
 		struct Dimensions {
 			glm::vec3 min = glm::vec3(FLT_MAX);
 			glm::vec3 max = glm::vec3(-FLT_MAX);

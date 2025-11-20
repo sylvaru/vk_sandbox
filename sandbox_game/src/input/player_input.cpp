@@ -1,14 +1,19 @@
 // player_input.cpp
 #include "input/player_input.h"
 
-SandboxMNKController::SandboxMNKController(float moveSpeed, float mouseSensitivity)
-    : m_moveSpeed(moveSpeed), m_mouseSensitivity(mouseSensitivity), m_yaw(-90.f), m_pitch(0.f)
+SandboxMNKController::SandboxMNKController(float moveSpeed, float mouseSensitivity, PhysicsEngine* physics)
+    : m_moveSpeed(moveSpeed) 
+    , m_mouseSensitivity(mouseSensitivity)
+    , m_yaw(-90.f), m_pitch(0.f)
+    , m_physics(physics)
 {
 }
 
 void SandboxMNKController::mouseCallback(glm::vec2 delta) {
     m_rawDelta = delta;
 }
+
+
 void SandboxMNKController::update(float dt, std::shared_ptr<IWindowInput> input, TransformComponent& transform) {
     if (!input || dt <= 0.0f) return;
 
@@ -16,7 +21,7 @@ void SandboxMNKController::update(float dt, std::shared_ptr<IWindowInput> input,
     m_smoothDelta += (m_rawDelta - m_smoothDelta) * alpha;
 
     float deltaYaw = m_smoothDelta.x * m_mouseSensitivity;
-    float deltaPitch = -m_smoothDelta.y * m_mouseSensitivity; // invert Y for typical FPS
+    float deltaPitch = -m_smoothDelta.y * m_mouseSensitivity;
 
     m_yaw += deltaYaw;
     m_pitch += deltaPitch;
@@ -25,6 +30,7 @@ void SandboxMNKController::update(float dt, std::shared_ptr<IWindowInput> input,
     transform.rotation.x = glm::radians(m_pitch);
     transform.rotation.y = glm::radians(m_yaw);
 
+    // Compute input direction
     glm::vec3 front{
         std::cos(glm::radians(m_yaw)) * std::cos(glm::radians(m_pitch)),
         std::sin(glm::radians(m_pitch)),
@@ -45,7 +51,17 @@ void SandboxMNKController::update(float dt, std::shared_ptr<IWindowInput> input,
     if (glm::length(dir) > 1e-6f) {
         dir = glm::normalize(dir);
         float speed = m_moveSpeed * (input->isKeyPressed(SandboxKey::LEFT_SHIFT) ? 3.f : 1.f);
-        transform.translation += dir * speed * dt;
+        glm::vec3 displacement = dir * speed * dt;
+
+        if (m_controller) {
+            // Move using PhysX capsule controller
+            m_physics->moveFPSController(displacement, dt);
+            transform.translation = m_physics->getFPScontrollerPosition();
+        }
+        else {
+            // Fallback to simple movement
+            transform.translation += displacement;
+        }
     }
 
     m_rawDelta = glm::vec2(0.f);

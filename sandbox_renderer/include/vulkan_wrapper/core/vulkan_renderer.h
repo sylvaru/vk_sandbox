@@ -58,8 +58,8 @@ public:
 	void initImGui(VkInstance instance, VkPhysicalDevice physicalDevice, VkDevice device, VkQueue graphicsQueue, uint32_t queueFamily);
 	void shutdownImGui();
 
-	void beginImGuiFrame();
-	void renderImGui(FrameContext& frame);
+	const void beginImGuiFrame();
+	const void renderImGui(FrameContext& frame);
 	
 	// Inline helpers
 	inline VkRenderPass getSwapChainRenderPass() const { return m_swapchain->getRenderPass(); }
@@ -71,7 +71,7 @@ public:
 		return m_commandBuffers[m_currentFrameIndex];
 	}
 
-	inline 	int getFrameIndex() const {
+	inline int getFrameIndex() const {
 		assert(m_bIsFrameStarted && "Cannot get frame index when frame not in progress");
 		return m_currentFrameIndex;
 	}

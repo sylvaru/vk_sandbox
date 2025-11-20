@@ -6,6 +6,7 @@
 #include "physics/physics_engine.h"
 
 #include <unordered_set>
+#include "asset_manager.h"
 
 // EngineSceneBase class contains the low level scene mechanisms (renderables, physics, object lifetime, etc)
 // It is the central owner of all game objects
@@ -13,7 +14,7 @@
 
 class EngineSceneBase : public IScene {
 public:
-    EngineSceneBase() = default;
+    EngineSceneBase(Core::AssetManager* assetManager);
   
 
     // Default behavior shared by all scenes
@@ -32,9 +33,10 @@ public:
     std::optional<std::reference_wrapper<IGameObject>>
         getSkyboxObject() const override;
 
-    void setPhysicsEngine(std::unique_ptr<PhysicsEngine> physics) {
-        m_physicsEngine = std::move(physics);
-    }
+    void setPhysicsEngine(std::unique_ptr<PhysicsEngine> physics) { m_physicsEngine = std::move(physics); }
+    PhysicsEngine* getPhysicsEngine() const { return m_physicsEngine.get(); }
+
+    void initPhysics() { m_physicsEngine->initPhysx(); }
 
     // Rendering registry
     RenderableRegistry& getRenderRegistry() { return m_renderRegistry; }
@@ -67,6 +69,6 @@ protected:
 
     std::unique_ptr<PhysicsEngine> m_physicsEngine;
 
-
     std::unordered_set<int> m_playerIds;
+    Core::AssetManager* m_assetManager;
 };

@@ -1,12 +1,14 @@
 #include "base/engine_scene_base.h"
 
-
+EngineSceneBase::EngineSceneBase(Core::AssetManager* assetManager)
+    : m_assetManager(assetManager)
+{
+}
 void EngineSceneBase::init()
 {
     for (auto& [id, obj] : m_gameObjects) {
         obj->onInit();
     }
-    m_physicsEngine->initPhysx();
 }
 void EngineSceneBase::update(float dt)
 {
@@ -32,14 +34,7 @@ void EngineSceneBase::removeGameObject(uint32_t id)
     m_gameObjects.erase(id);
 }
 
-void EngineSceneBase::clearScene()
-{
-    for (auto& [id, _] : m_gameObjects)
-        removeRenderable(id);
 
-    m_gameObjects.clear();
-    m_skyboxId.reset();
-}
 
 RenderableID EngineSceneBase::createRenderable(
     uint32_t gameObjectId,
@@ -57,7 +52,7 @@ RenderableID EngineSceneBase::createRenderable(
     // Track which renderable belongs to which game object
     m_goRenderable[gameObjectId] = rid;
 
-    // Retrieve the object (we must have it in the map)
+    // Retrieve the object
     auto it = m_gameObjects.find(gameObjectId);
     if (it == m_gameObjects.end())
         return rid;
@@ -66,12 +61,24 @@ RenderableID EngineSceneBase::createRenderable(
 
     if (auto model = go->getModel()) {
 
-        // Only vkglTF::Model is supported by RenderableRegistry
         if (auto gltfModel = std::dynamic_pointer_cast<vkglTF::Model>(model)) {
             m_renderRegistry.setModelPointer(rid, gltfModel.get());
+
+            // create static physics mesh
+            if (m_physicsEngine) {
+                const auto& vertices = gltfModel->cpuPositions;
+                const auto& indices = gltfModel->cpuIndices;
+
+                auto filtered = m_physicsEngine->extractCollisionMesh(vertices, indices);
+
+                m_physicsEngine->createStaticTriangleMesh(
+                    filtered.vertices,
+                    filtered.indices,
+                    t.model
+                );
+            }
         }
     }
-
     return rid;
 }
 
@@ -82,6 +89,14 @@ void EngineSceneBase::removeRenderable(uint32_t id)
         m_renderRegistry.removeInstance(it->second);
         m_goRenderable.erase(it);
     }
+}
+void EngineSceneBase::clearScene()
+{
+    for (auto& [id, _] : m_gameObjects)
+        removeRenderable(id);
+
+    m_gameObjects.clear();
+    m_skyboxId.reset();
 }
 
 void EngineSceneBase::setSkyboxObject(std::shared_ptr<IGameObject> obj)
