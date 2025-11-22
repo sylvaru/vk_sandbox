@@ -1290,17 +1290,17 @@ void  vkglTF::Model::loadFromFile(std::string filename, VkSandboxDevice* device,
 						Vertex& vertex = vertexBuffer[primitive->firstVertex + i];
 						// Pre-transform vertex positions by node-hierarchy
 						if (preTransform) {
-							vertex.pos = glm::vec3(localMatrix * glm::vec4(vertex.pos, 1.0f));
-							vertex.normal = glm::normalize(glm::mat3(localMatrix) * vertex.normal);
+							//vertex.pos = glm::vec3(localMatrix * glm::vec4(vertex.pos, 1.0f));
+							//vertex.normal = glm::normalize(glm::mat3(localMatrix) * vertex.normal);
 						}
 						// Flip Y-Axis of vertex positions
 						if (flipY) {
-							vertex.pos.y *= -1.0f;
-							vertex.normal.y *= -1.0f;
+							//vertex.pos.y *= -1.0f;
+							//vertex.normal.y *= -1.0f;
 						}
 						// Pre-Multiply vertex colors with material base color
 						if (preMultiplyColor) {
-							vertex.color = primitive->material.baseColorFactor * vertex.color;
+							//vertex.color = primitive->material.baseColorFactor * vertex.color;
 						}
 					}
 				}

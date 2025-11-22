@@ -154,13 +154,13 @@ namespace Core {
 		m_windowInput->lockCursor(m_cursorLocked);
 	}
 
-	void SandboxEngine::setupInputCallbacks() {
-		m_windowInput->setKeyCallback([this](SandboxKey key, int scancode, KeyAction action, int mods) {
-			if (key == SandboxKey::LEFT_ALT && action == KeyAction::PRESS) {
-				toggleCursorLock();
-			}
-			});
-	}
+    void SandboxEngine::setupInputCallbacks() {
+        m_windowInput->setKeyCallback([this](SandboxKey key, int scancode, KeyAction action, int mods) {
+            if (key == SandboxKey::LEFT_ALT && action == KeyAction::PRESS) {
+                toggleCursorLock();
+            }
+            });
+    }
 
 	void SandboxEngine::processInput() {
 

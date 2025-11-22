@@ -1,8 +1,8 @@
-#include "vulkan_wrapper/render_systems/skybox_ibl_rs.h"
+#include "vulkan_wrapper/render_systems/skybox_render_system.h"
 #include "interfaces/game_object_i.h"
 
 
-SkyboxIBLrenderSystem::SkyboxIBLrenderSystem(
+SkyboxRenderSystem::SkyboxRenderSystem(
 	VkSandboxDevice& device,
 	VkRenderPass renderPass,
 	VkDescriptorSetLayout globalSetLayout,
@@ -11,12 +11,12 @@ SkyboxIBLrenderSystem::SkyboxIBLrenderSystem(
 {
 }
 
-SkyboxIBLrenderSystem::~SkyboxIBLrenderSystem() {
+SkyboxRenderSystem::~SkyboxRenderSystem() {
 	// destroy the pipeline layout you created
 	vkDestroyPipelineLayout(m_device.device(), m_pipelineLayout, nullptr);
 	// (the VkSandboxPipeline unique_ptr will destroy the VkPipeline)
 }
-void SkyboxIBLrenderSystem::init(
+void SkyboxRenderSystem::init(
 	VkSandboxDevice& device,
 	VkRenderPass renderPass,
 	VkDescriptorSetLayout globalSetLayout,
@@ -34,7 +34,7 @@ void SkyboxIBLrenderSystem::init(
 	createPipelineLayout(globalSetLayout);
 	createPipeline(renderPass);
 }
-void SkyboxIBLrenderSystem::render(FrameInfo& frame) {
+void SkyboxRenderSystem::render(FrameInfo& frame) {
 	if (!m_bHasCubemap || !frame.renderRegistry) return;
 
 	const auto& registry = *frame.renderRegistry;
@@ -66,7 +66,7 @@ void SkyboxIBLrenderSystem::render(FrameInfo& frame) {
 }
 
 
-void SkyboxIBLrenderSystem::record(const RGContext& rgctx, FrameInfo& frame) {
+void SkyboxRenderSystem::record(const RGContext& rgctx, FrameInfo& frame) {
 	frame.commandBuffer = rgctx.cmd;
 	frame.frameIndex = rgctx.frameIndex;
 	frame.globalDescriptorSet = rgctx.globalSet;
@@ -74,7 +74,7 @@ void SkyboxIBLrenderSystem::record(const RGContext& rgctx, FrameInfo& frame) {
 	this->render(frame);
 }
 
-void SkyboxIBLrenderSystem::createSkyboxDescriptorSetLayout() {
+void SkyboxRenderSystem::createSkyboxDescriptorSetLayout() {
 	m_skyboxSetLayout = VkSandboxDescriptorSetLayout::Builder(m_device)
 		.addBinding(
 			0,
@@ -85,7 +85,7 @@ void SkyboxIBLrenderSystem::createSkyboxDescriptorSetLayout() {
 		.build();
 }
 
-void SkyboxIBLrenderSystem::allocateAndWriteSkyboxDescriptorSet() {
+void SkyboxRenderSystem::allocateAndWriteSkyboxDescriptorSet() {
 	assert(m_descriptorPool && "Descriptor pool must be set before allocating descriptors");
 	assert(m_skyboxSetLayout && "Descriptor set layout must be created before allocating");
 
@@ -95,7 +95,7 @@ void SkyboxIBLrenderSystem::allocateAndWriteSkyboxDescriptorSet() {
 	assert(success && "Failed to build skybox descriptor set");
 }
 
-void SkyboxIBLrenderSystem::createPipelineLayout(VkDescriptorSetLayout globalSetLayout) {
+void SkyboxRenderSystem::createPipelineLayout(VkDescriptorSetLayout globalSetLayout) {
 
 	VkDescriptorSetLayout skyboxLayoutHandle =
 		m_skyboxSetLayout->getDescriptorSetLayout();
@@ -118,7 +118,7 @@ void SkyboxIBLrenderSystem::createPipelineLayout(VkDescriptorSetLayout globalSet
 
 
 
-void SkyboxIBLrenderSystem::createPipeline(VkRenderPass renderPass) {
+void SkyboxRenderSystem::createPipeline(VkRenderPass renderPass) {
 	assert(m_pipelineLayout != VK_NULL_HANDLE && "Pipeline layout must be created before pipeline");
 
 	PipelineConfigInfo config{};

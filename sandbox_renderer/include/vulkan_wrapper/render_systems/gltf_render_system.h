@@ -9,15 +9,13 @@
 #include "vulkan_wrapper/vulkan_descriptor.h"
 
 #include "vulkan_wrapper/vulkan_gltf.h"
-#include "vulkan_wrapper/core/vulkan_renderer.h"
 #include "vulkan_wrapper/core/render_graph.h"
 #include "vulkan_wrapper/core/renderable_registry.h"
 
-// STD
+#include <vulkan/vulkan.h>
 #include <memory>
 #include <vector>
 
-#include <vulkan/vulkan.h>
 
 
 
@@ -57,6 +55,9 @@ private:
 	VkDescriptorSetLayout m_globalSetLayout;
 	VkDescriptorSetLayout m_iblSetLayout;
 	VkDescriptorSet m_iblDescriptorSet;
+	std::unique_ptr<VkSandboxDescriptorSetLayout> m_iblLayout;
+	std::vector<VkDescriptorSet>				  m_iblDescriptorSets;
+
 
 	std::unique_ptr<VkSandboxPipeline> m_opaquePipeline;
 	std::unique_ptr<VkSandboxPipeline> m_maskPipeline;
@@ -64,10 +65,5 @@ private:
 	VkPipelineLayout m_pipelineLayout;
 
 	IAssetProvider& m_assets;
-
-	std::unique_ptr<VkSandboxDescriptorSetLayout> m_iblLayout;
-	std::vector<VkDescriptorSet>				  m_iblDescriptorSets;
- 
-
 };
 

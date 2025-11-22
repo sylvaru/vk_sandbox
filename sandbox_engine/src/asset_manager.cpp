@@ -193,7 +193,7 @@ namespace Core {
             PROJECT_ROOT_DIR + std::string("/res/models/gltf/cube.gltf"),
             &m_device,
             m_transferQueue,
-            vkglTF::FileLoadingFlags::PreTransformVertices | vkglTF::FileLoadingFlags::DontLoadImages
+            vkglTF::FileLoadingFlags::PreTransformVertices | vkglTF::FileLoadingFlags::DontLoadImages | vkglTF::FileLoadingFlags::FlipY
         );
         generateBRDFlut();
 

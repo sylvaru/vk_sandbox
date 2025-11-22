@@ -29,12 +29,12 @@ target_sources(sandbox_renderer
          src/vulkan_wrapper/vulkan_texture.cpp
          include/vulkan_wrapper/render_systems/gltf_render_system.h
          src/vulkan_wrapper/render_systems/gltf_render_system.cpp
-         include/vulkan_wrapper/render_systems/point_light_rs.h
-         src/vulkan_wrapper/render_systems/point_light_rs.cpp
-         include/vulkan_wrapper/render_systems/skybox_ibl_rs.h
-         src/vulkan_wrapper/render_systems/skybox_ibl_rs.cpp
-         include/vulkan_wrapper/render_systems/scene_rs.h
-         src/vulkan_wrapper/render_systems/scene_rs.cpp
+         "include/vulkan_wrapper/render_systems/pointlight_render_system.h"
+         src/vulkan_wrapper/render_systems/pointlight_render_system.cpp
+         "include/vulkan_wrapper/render_systems/skybox_render_system.h"
+         "src/vulkan_wrapper/render_systems/skybox_render_system.cpp"
+         "include/vulkan_wrapper/render_systems/scene_render_system.h"
+         "src/vulkan_wrapper/render_systems/scene_render_system.cpp"
          include/vulkan_wrapper/core/render_graph.h
          src/vulkan_wrapper/core/render_graph.cpp
          include/vulkan_wrapper/core/renderable_registry.h

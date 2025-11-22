@@ -1,5 +1,5 @@
 
-#include "vulkan_wrapper/render_systems/point_light_rs.h"
+#include "vulkan_wrapper/render_systems/pointlight_render_system.h"
 #include "frame_info.h"
 #include "interfaces/game_object_i.h"
 // libs
@@ -23,17 +23,17 @@ struct PointLightPushConstants {
     float radius;
 };
 
-PointLightRS::PointLightRS(VkSandboxDevice& device, VkRenderPass renderPass, VkDescriptorSetLayout globalSetLayout)
+PointLightRenderSystem::PointLightRenderSystem(VkSandboxDevice& device, VkRenderPass renderPass, VkDescriptorSetLayout globalSetLayout)
     : m_device(device), m_globalSetLayout(globalSetLayout)
 {
     init(device, renderPass, globalSetLayout);
 }
 
-PointLightRS::~PointLightRS() {
+PointLightRenderSystem::~PointLightRenderSystem() {
     vkDestroyPipelineLayout(m_device.device(), m_pipelineLayout, nullptr);
 }
 
-void PointLightRS::init(
+void PointLightRenderSystem::init(
     VkSandboxDevice& device,
     VkRenderPass renderPass,
     VkDescriptorSetLayout globalSetLayout)
@@ -46,7 +46,7 @@ void PointLightRS::init(
 
 
 
-void PointLightRS::render(FrameInfo& frame) {
+void PointLightRenderSystem::render(FrameInfo& frame) {
     if (!frame.renderRegistry)
         return;
 
@@ -96,7 +96,7 @@ void PointLightRS::render(FrameInfo& frame) {
 }
 
 
-void PointLightRS::record(const RGContext& rgctx, FrameInfo& frame) {
+void PointLightRenderSystem::record(const RGContext& rgctx, FrameInfo& frame) {
     frame.commandBuffer = rgctx.cmd;
     frame.frameIndex = rgctx.frameIndex;
     frame.globalDescriptorSet = rgctx.globalSet;
@@ -105,7 +105,7 @@ void PointLightRS::record(const RGContext& rgctx, FrameInfo& frame) {
 }
 
 
-void PointLightRS::update(FrameInfo& frame, GlobalUbo& ubo) {
+void PointLightRenderSystem::update(FrameInfo& frame, GlobalUbo& ubo) {
     auto rotateLight = glm::rotate(glm::mat4(1.f), m_rotationSpeed * frame.frameTime, glm::vec3(0.f, -1.f, 0.f));
 
     int lightIndex = 0;
@@ -142,7 +142,7 @@ void PointLightRS::update(FrameInfo& frame, GlobalUbo& ubo) {
 
 
 
-void PointLightRS::createPipelineLayout(VkDescriptorSetLayout globalSetLayout) {
+void PointLightRenderSystem::createPipelineLayout(VkDescriptorSetLayout globalSetLayout) {
     VkPushConstantRange pushConstantRange{};
     pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
     pushConstantRange.offset = 0;
@@ -162,7 +162,7 @@ void PointLightRS::createPipelineLayout(VkDescriptorSetLayout globalSetLayout) {
     }
 }
 
-void PointLightRS::createPipeline(VkRenderPass renderPass) {
+void PointLightRenderSystem::createPipeline(VkRenderPass renderPass) {
     assert(m_pipelineLayout != VK_NULL_HANDLE && "Cannot create pipeline before pipeline layout");
 
     PipelineConfigInfo pipelineConfig{};

@@ -4,7 +4,7 @@
 #include "vulkan_wrapper/vulkan_pipeline.h"
 #include <vulkan/vulkan.h>
 
-// STD
+
 #include <memory>
 #include <vector>
 

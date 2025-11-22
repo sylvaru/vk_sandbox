@@ -7,18 +7,15 @@
 #include "vulkan_wrapper/vulkan_device.h"
 #include "vulkan_wrapper/vulkan_pipeline.h"
 #include "vulkan_wrapper/vulkan_descriptor.h"
-
 #include "vulkan_wrapper/vulkan_gltf.h"
+
 #include "vulkan_wrapper/core/renderable_registry.h"
 #include "vulkan_wrapper/core/render_graph.h"
-// STD
+
+
 #include <memory>
 #include <vector>
-
 #include <vulkan/vulkan.h>
-
-
-
 
 
 class SceneRenderSystem : public IRenderSystem {
@@ -51,7 +48,5 @@ private:
 	VkPipelineLayout m_pipelineLayout;
 
 	IAssetProvider& m_assets;
-
-
 };
 

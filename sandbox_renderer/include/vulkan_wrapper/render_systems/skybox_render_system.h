@@ -1,33 +1,33 @@
 #pragma once
 #include "interfaces/render_system_i.h"
 #include "interfaces/asset_provider_i.h"
+
 #include "vulkan_wrapper/vulkan_device.h"
 #include "vulkan_wrapper/vulkan_pipeline.h"
 #include "vulkan_wrapper/vulkan_descriptor.h"
 #include "vulkan_wrapper/vulkan_gltf.h"
+
 #include "vulkan_wrapper/core/render_graph.h"
 #include "vulkan_wrapper/core/renderable_registry.h"
 
 #include <vulkan/vulkan.h>
-
-// STD
 #include <memory>
 #include <vector>
 #include <array>
 
 
-class SkyboxIBLrenderSystem : public IRenderSystem {
+class SkyboxRenderSystem : public IRenderSystem {
 public:
-    SkyboxIBLrenderSystem(
+    SkyboxRenderSystem(
         VkSandboxDevice& device,
         VkRenderPass renderPass,
         VkDescriptorSetLayout globalSetLayout,
         VkSandboxDescriptorPool& pool);
 
-    ~SkyboxIBLrenderSystem();
+    ~SkyboxRenderSystem();
 
-    SkyboxIBLrenderSystem(const SkyboxIBLrenderSystem&) = delete;
-    SkyboxIBLrenderSystem& operator=(const SkyboxIBLrenderSystem&) = delete;
+    SkyboxRenderSystem(const SkyboxRenderSystem&) = delete;
+    SkyboxRenderSystem& operator=(const SkyboxRenderSystem&) = delete;
 
     void init(
         VkSandboxDevice& device,

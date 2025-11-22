@@ -11,6 +11,7 @@
 #include "asset_manager.h"
 #include "physics/physics_engine.h"
 
+
 #include <spdlog/spdlog.h>
 
 namespace Core {
@@ -59,7 +60,7 @@ namespace Core {
 
         IScene* getActiveScene() const { return m_activeScene; }
 
-        const bool isCursorLocked() { return m_cursorLocked; }
+        bool isCursorLocked() const { return m_cursorLocked; }
 
     private:
         EngineSpecification                      m_engineSpec;

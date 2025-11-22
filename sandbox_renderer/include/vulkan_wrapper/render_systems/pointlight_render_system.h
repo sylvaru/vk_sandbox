@@ -5,20 +5,20 @@
 #include <vulkan/vulkan.h>
 #include "vulkan_wrapper/core/render_graph.h"
 #include "vulkan_wrapper/core/renderable_registry.h"
-// STD
+
 #include <memory>
 #include <vector>
 
 struct PointLightComponent;
 
-class PointLightRS : public IRenderSystem {
+class PointLightRenderSystem : public IRenderSystem {
 public:
 
-	PointLightRS(const PointLightRS&) = delete;
-	PointLightRS& operator=(const PointLightRS&) = delete;
+	PointLightRenderSystem(const PointLightRenderSystem&) = delete;
+	PointLightRenderSystem& operator=(const PointLightRenderSystem&) = delete;
 
-	PointLightRS(VkSandboxDevice& device, VkRenderPass renderPass, VkDescriptorSetLayout globalSetLayout);
-	~PointLightRS();
+	PointLightRenderSystem(VkSandboxDevice& device, VkRenderPass renderPass, VkDescriptorSetLayout globalSetLayout);
+	~PointLightRenderSystem();
 
 	void init(
 		VkSandboxDevice& device,

@@ -5,16 +5,15 @@
 #include "interfaces/render_system_i.h"
 #include "interfaces/scene_i.h"
 #include "interfaces/asset_provider_i.h"
-#include "vulkan_wrapper/render_systems/obj_render_system.h"
-#include "vulkan_wrapper/render_systems/gltf_render_system.h"
-#include "vulkan_wrapper/render_systems/scene_rs.h"
-#include "vulkan_wrapper/render_systems/skybox_ibl_rs.h"
-#include "vulkan_wrapper/render_systems/point_light_rs.h"
+
 #include "window.h"
+
 #include "vulkan_wrapper/vulkan_device.h"
 #include "vulkan_wrapper/vulkan_swapchain.h"
 #include "vulkan_wrapper/vulkan_descriptor.h"
 #include "vulkan_wrapper/vulkan_buffer.h"
+
+
 #include <vector>
 #include <array>
 #include "imgui.h"
@@ -23,8 +22,9 @@
 
 
 class GltfRenderSystem;
-class PointLightRS;
+class PointLightRenderSystem;
 class SceneRenderSystem;
+class SkyboxRenderSystem;
 
 class VkSandboxRenderer : public ISandboxRenderer
 {
@@ -48,7 +48,7 @@ public:
 	void endSwapChainRenderPass(FrameContext& frame)override;
 
 	void initializeSystems(IAssetProvider& assets, IScene& scene);
-	void initSkyboxSystem();
+
 	void renderSystems(FrameInfo& info, FrameContext& frame)override;
 
 	void waitDeviceIdle() override;
@@ -61,25 +61,25 @@ public:
 	const void beginImGuiFrame();
 	const void renderImGui(FrameContext& frame);
 	
-	// Inline helpers
-	inline VkRenderPass getSwapChainRenderPass() const { return m_swapchain->getRenderPass(); }
-	inline float getAspectRatio() const { return m_swapchain->extentAspectRatio(); }
-	inline bool isFrameInProgress() const { return m_bIsFrameStarted; }
+	// Helpers
+	VkRenderPass getSwapChainRenderPass() const { return m_swapchain->getRenderPass(); }
+	float getAspectRatio() const { return m_swapchain->extentAspectRatio(); }
+	bool isFrameInProgress() const { return m_bIsFrameStarted; }
 
-	inline VkCommandBuffer getCurrentCommandBuffer() const {
+	VkCommandBuffer getCurrentCommandBuffer() const {
 		assert(m_bIsFrameStarted && "Cannot get command buffer when frame not in progress");
 		return m_commandBuffers[m_currentFrameIndex];
 	}
 
-	inline int getFrameIndex() const {
+	int getFrameIndex() const {
 		assert(m_bIsFrameStarted && "Cannot get frame index when frame not in progress");
 		return m_currentFrameIndex;
 	}
 
-	inline const std::vector<VkDescriptorSet>& getGlobalDescriptorSet() const {
+	const std::vector<VkDescriptorSet>& getGlobalDescriptorSet() const {
 		return m_globalDescriptorSets;
 	}
-	inline const std::vector<std::unique_ptr<VkSandboxBuffer>>& getUboBuffers() const {
+	const std::vector<std::unique_ptr<VkSandboxBuffer>>& getUboBuffers() const {
 		return m_uboBuffers;
 	}
 	bool isImGuiInitialized() const { return m_imguiInitialized; }
@@ -111,12 +111,14 @@ private:
 	std::vector<VkImageLayout>						 m_depthImageLayouts;
 
 
-	std::unique_ptr<SkyboxIBLrenderSystem>				  m_skyboxSystem;
+	std::unique_ptr<SkyboxRenderSystem>					  m_skyboxSystem;
 	std::unique_ptr<GltfRenderSystem>					    m_gltfSystem;
-	std::unique_ptr<PointLightRS>					  m_pointLightSystem;
+	std::unique_ptr<PointLightRenderSystem>			  m_pointLightSystem;
 	std::unique_ptr<SceneRenderSystem>					   m_sceneSystem;
 
-
+	//VkDescriptorSetLayout m_iblSetLayout;
+	//std::vector<VkDescriptorSet> m_iblDescriptorSets;
+	//std::unique_ptr<VkSandboxDescriptorSetLayout> m_iblLayout;  
 
 
 	void createGlobalDescriptorObjects();

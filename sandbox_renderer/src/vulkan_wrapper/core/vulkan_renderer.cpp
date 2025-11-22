@@ -1,9 +1,15 @@
 #include "vulkan_wrapper/core/vulkan_renderer.h"
+#include "vulkan_wrapper/core/render_graph.h"
+#include "vulkan_wrapper/render_systems/gltf_render_system.h"
+#include "vulkan_wrapper/render_systems/scene_render_system.h"
+#include "vulkan_wrapper/render_systems/skybox_render_system.h"
+#include "vulkan_wrapper/render_systems/pointlight_render_system.h"
+
 #include <stdexcept>
 #include <array>
 #include <cassert>
 #include <spdlog/spdlog.h>
-#include "vulkan_wrapper/core/render_graph.h"
+
 
 VkSandboxRenderer::VkSandboxRenderer(
     VkSandboxDevice& device,
@@ -78,7 +84,7 @@ void VkSandboxRenderer::initializeSystems(
     VkDescriptorSetLayout globalLayout = m_globalLayout->getDescriptorSetLayout();
     VkSandboxDescriptorPool& pool = *m_pool;
 
-    m_skyboxSystem = std::make_unique<SkyboxIBLrenderSystem>(m_device, rp, globalLayout, pool);
+    m_skyboxSystem = std::make_unique<SkyboxRenderSystem>(m_device, rp, globalLayout, pool);
 
     if (auto skyboxOpt = scene.getSkyboxObject()) {
         IGameObject& skyObj = skyboxOpt.value().get();
@@ -120,7 +126,7 @@ void VkSandboxRenderer::initializeSystems(
         FrameCount
     );
 
-    m_pointLightSystem = std::make_unique<PointLightRS>(
+    m_pointLightSystem = std::make_unique<PointLightRenderSystem>(
         m_device,
         rp,
         globalLayout
