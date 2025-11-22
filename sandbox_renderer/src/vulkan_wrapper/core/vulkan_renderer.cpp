@@ -84,6 +84,10 @@ void VkSandboxRenderer::initializeSystems(
     VkDescriptorSetLayout globalLayout = m_globalLayout->getDescriptorSetLayout();
     VkSandboxDescriptorPool& pool = *m_pool;
 
+    // create ibl descriptors
+    createIblDescriptors(provider);
+
+    // create skybox render system
     m_skyboxSystem = std::make_unique<SkyboxRenderSystem>(m_device, rp, globalLayout, pool);
 
     if (auto skyboxOpt = scene.getSkyboxObject()) {
@@ -121,10 +125,19 @@ void VkSandboxRenderer::initializeSystems(
         m_device,
         rp,
         globalLayout,
-        pool,
-        provider,
-        FrameCount
+        m_iblSetLayout,
+        m_iblDescriptorSets
     );
+
+    m_sceneSystem = std::make_unique<SceneRenderSystem>(
+        m_device,
+        rp,
+        globalLayout,
+        m_iblSetLayout,
+        m_iblDescriptorSets
+    );
+
+
 
     m_pointLightSystem = std::make_unique<PointLightRenderSystem>(
         m_device,
@@ -132,14 +145,9 @@ void VkSandboxRenderer::initializeSystems(
         globalLayout
     );
 
-    m_sceneSystem = std::make_unique<SceneRenderSystem>(
-        m_device,
-        rp,
-        globalLayout,
-        provider
-    );
 
 }
+
 void VkSandboxRenderer::updateSystems(FrameInfo& frame, GlobalUbo& ubo, float deltaTime)
 {
     m_pointLightSystem->update(frame, ubo);
@@ -179,6 +187,8 @@ void VkSandboxRenderer::renderSystems(FrameInfo& info, FrameContext& frame) {
                 });
     }
 
+ 
+
     if (m_gltfSystem) {
         graph.addPass("GLTF")
             .write(color, RGUsage::WriteColor)
@@ -191,18 +201,7 @@ void VkSandboxRenderer::renderSystems(FrameInfo& info, FrameContext& frame) {
             m_gltfSystem->record(ctx, tmpFrame);
                 });
     }
-    if (m_pointLightSystem) {
-        graph.addPass("PointLight")
-            .write(color, RGUsage::WriteColor)
-            .write(depth, RGUsage::WriteDepth)
-            .setExecute([this](const RGContext& ctx) {
-            FrameInfo tmpFrame = *ctx.frame;
-            tmpFrame.commandBuffer = ctx.cmd;
-            tmpFrame.frameIndex = static_cast<int>(ctx.frameIndex);
-            tmpFrame.globalDescriptorSet = ctx.globalSet;
-            m_pointLightSystem->record(ctx, tmpFrame);
-                });
-    }
+
     if (m_sceneSystem) {
         graph.addPass("Scene")
             .write(color, RGUsage::WriteColor)
@@ -215,6 +214,20 @@ void VkSandboxRenderer::renderSystems(FrameInfo& info, FrameContext& frame) {
             m_sceneSystem->record(ctx, tmpFrame);
                 });
     }
+
+    if (m_pointLightSystem) {
+        graph.addPass("PointLight")
+            .write(color, RGUsage::WriteColor)
+            .write(depth, RGUsage::WriteDepth)
+            .setExecute([this](const RGContext& ctx) {
+            FrameInfo tmpFrame = *ctx.frame;
+            tmpFrame.commandBuffer = ctx.cmd;
+            tmpFrame.frameIndex = static_cast<int>(ctx.frameIndex);
+            tmpFrame.globalDescriptorSet = ctx.globalSet;
+            m_pointLightSystem->record(ctx, tmpFrame);
+                });
+    }
+
 
     graph.addPass("ImGui")
         .write(color, RGUsage::WriteColor)
@@ -433,6 +446,41 @@ void VkSandboxRenderer::flushAndSubmitSingleUseCommandBuffer(VkCommandBuffer cmd
 
 void VkSandboxRenderer::waitDeviceIdle() {
     vkDeviceWaitIdle(m_device.device());
+}
+
+void VkSandboxRenderer::createIblDescriptors(IAssetProvider& provider) {
+    if (!m_iblLayout) {
+        m_iblLayout = VkSandboxDescriptorSetLayout::Builder{ m_device }
+            .addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
+            .addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
+            .addBinding(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
+            .build();
+     
+        // Keep raw layout handle for pipeline creation
+        m_iblSetLayout = m_iblLayout->getDescriptorSetLayout();
+    }
+
+    m_iblDescriptorSets.resize(FrameCount);
+
+    // Get descriptor infos from asset provider (these must be valid VkDescriptorImageInfo)
+    VkDescriptorImageInfo brdfInfo = provider.getBRDFLUTDescriptor();
+    VkDescriptorImageInfo irradianceInfo = provider.getIrradianceDescriptor();
+    VkDescriptorImageInfo prefilterInfo = provider.getPrefilteredDescriptor();
+
+    for (uint32_t i = 0; i < FrameCount; ++i) {
+        VkDescriptorSet set;
+        if (!m_pool->allocateDescriptor(m_iblLayout->getDescriptorSetLayout(), set, 0)) {
+            throw std::runtime_error("Failed to allocate IBL descriptor set");
+        }
+
+        VkSandboxDescriptorWriter(*m_iblLayout, *m_pool)
+            .writeImage(0, &brdfInfo)
+            .writeImage(1, &irradianceInfo)
+            .writeImage(2, &prefilterInfo)
+            .build(set);
+
+        m_iblDescriptorSets[i] = set;
+    }
 }
 
 

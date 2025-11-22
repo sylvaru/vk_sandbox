@@ -27,43 +27,44 @@ public:
 		VkSandboxDevice& device,
 		VkRenderPass renderPass,
 		VkDescriptorSetLayout globalSetLayout,
-		VkSandboxDescriptorPool& descriptorPool,
-		IAssetProvider& assets,
-		size_t frameCount
+		VkDescriptorSetLayout iblSetLayout,
+		const std::vector<VkDescriptorSet>& iblDescriptorSets
+	);
+
+	void init(
+		VkSandboxDevice& device,
+		VkRenderPass            renderPass,
+		VkDescriptorSetLayout   globalSetLayout
 		);
+
+
 	~GltfRenderSystem();
 
 	GltfRenderSystem(const GltfRenderSystem&) = delete;
 	GltfRenderSystem& operator=(const GltfRenderSystem&) = delete;
 
-	void init(
-		VkSandboxDevice& device,
-		VkRenderPass            renderPass,
-		VkDescriptorSetLayout   globalSetLayout,
-		VkSandboxDescriptorPool& descriptorPool,
-		size_t frameCount);
+	
 
 	void render(FrameInfo& frame) override;
 	void record(const RGContext& rgctx, FrameInfo& frame);
 
 private:
-	void createPipelineLayout(VkDescriptorSetLayout globalSetLayout);
+	void createPipelineLayout(
+		VkDescriptorSetLayout globalSetLayout,
+		VkDescriptorSetLayout iblSetLayout
+	);
 	void createPipeline(VkRenderPass renderPass);
 
-	VkSandboxDevice& m_device;
+	VkSandboxDevice&							  m_device;
 
-	VkDescriptorSetLayout m_globalSetLayout;
-	VkDescriptorSetLayout m_iblSetLayout;
-	VkDescriptorSet m_iblDescriptorSet;
-	std::unique_ptr<VkSandboxDescriptorSetLayout> m_iblLayout;
+	VkDescriptorSetLayout					      m_globalSetLayout;
+	VkDescriptorSetLayout						  m_iblSetLayout;
 	std::vector<VkDescriptorSet>				  m_iblDescriptorSets;
 
 
-	std::unique_ptr<VkSandboxPipeline> m_opaquePipeline;
-	std::unique_ptr<VkSandboxPipeline> m_maskPipeline;
-	std::unique_ptr<VkSandboxPipeline> m_blendPipeline;
-	VkPipelineLayout m_pipelineLayout;
-
-	IAssetProvider& m_assets;
+	std::unique_ptr<VkSandboxPipeline>		      m_opaquePipeline;
+	std::unique_ptr<VkSandboxPipeline>			  m_maskPipeline;
+	std::unique_ptr<VkSandboxPipeline>			  m_blendPipeline;
+	VkPipelineLayout							  m_pipelineLayout;
 };
 

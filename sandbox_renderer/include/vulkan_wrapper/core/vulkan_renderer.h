@@ -40,7 +40,6 @@ public:
 	~VkSandboxRenderer() override;
 	
 
-
 	FrameContext beginFrame() override;
 	
 	void endFrame(FrameContext& frame) override;
@@ -116,14 +115,14 @@ private:
 	std::unique_ptr<PointLightRenderSystem>			  m_pointLightSystem;
 	std::unique_ptr<SceneRenderSystem>					   m_sceneSystem;
 
-	//VkDescriptorSetLayout m_iblSetLayout;
-	//std::vector<VkDescriptorSet> m_iblDescriptorSets;
-	//std::unique_ptr<VkSandboxDescriptorSetLayout> m_iblLayout;  
+	VkDescriptorSetLayout m_iblSetLayout;
+	std::vector<VkDescriptorSet> m_iblDescriptorSets;
+	std::unique_ptr<VkSandboxDescriptorSetLayout> m_iblLayout;  
 
 
 	void createGlobalDescriptorObjects();
 	void allocateGlobalDescriptors();
-	
+	void createIblDescriptors(IAssetProvider& provider);
 
 	void createSwapChain();
 	void createCommandBuffers();

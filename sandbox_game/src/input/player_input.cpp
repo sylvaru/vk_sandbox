@@ -50,7 +50,7 @@ void SandboxMNKController::update(float dt, std::shared_ptr<IWindowInput> input,
 
     if (glm::length(dir) > 1e-6f) {
         dir = glm::normalize(dir);
-        float speed = m_moveSpeed * (input->isKeyPressed(SandboxKey::LEFT_SHIFT) ? 3.f : 1.f);
+        float speed = m_moveSpeed * (input->isKeyPressed(SandboxKey::LEFT_SHIFT) ? 4.f : 1.f);
         glm::vec3 displacement = dir * speed * dt;
 
         if (m_controller) {

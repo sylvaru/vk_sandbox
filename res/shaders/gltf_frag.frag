@@ -40,15 +40,15 @@ layout(set = 3, binding = 2) uniform samplerCube prefilteredMap;
 // Tweakable multipliers    //TODO: This should be configurable via imgui during runtime
 const float ALBEDO_INTENSITY      = 1.0;
 const float METALLIC_MULTIPLIER   = 1.0;
-const float ROUGHNESS_MULTIPLIER  = 1.0;
-const float AO_MULTIPLIER         = 1.0;
+const float ROUGHNESS_MULTIPLIER  = 0.6;
+const float AO_MULTIPLIER         = 0.04;
 const float NORMAL_STRENGTH       = 1.0;
 
 const float IBL_INTENSITY         = 1.0;
 const float DIRECT_LIGHT_INTENSITY = 1.0;
 
-const float EMISSIVE_INTENSITY    = 1.0;
-const float EXPOSURE              = 0.4;
+const float EMISSIVE_INTENSITY    = 0.2;
+const float EXPOSURE              = 1.0;
 
 
 void main() {

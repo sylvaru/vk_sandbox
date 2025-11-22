@@ -1,3 +1,4 @@
+// gltf.vert
 #version 450
 #extension GL_KHR_vulkan_glsl : enable
 
@@ -8,7 +9,7 @@ layout(location = 2) in vec2  inUV;
 layout(location = 3) in vec4  inColor;
 layout(location = 4) in vec4  inTangent;   // .xyz = tangent, .w = bitangent sign
 
-// Scene UBO (set 0)
+// Scene UBO
 struct PointLight {
     vec4 position;
     vec4 color;
@@ -23,10 +24,10 @@ layout(set = 0, binding = 0) uniform GlobalUbo {
     int numLights;
 } ubo;
 
-// Per-object node UBO (set 1)
+// Per-object node UBO
 layout(set = 1, binding = 0) uniform PerNode {
     mat4 modelMatrix;
-    mat4 normalMatrix;  // inverse-transpose of model
+    mat4 normalMatrix;
 } perNode;
 
 // Outputs
@@ -47,7 +48,6 @@ void main() {
     vec3 tangentWS = normalize(mat3(perNode.normalMatrix) * inTangent.xyz);
     outTangent = vec4(tangentWS, inTangent.w);
 
-    // Pass-through
     outUV    = inUV;
     outColor = inColor;
 

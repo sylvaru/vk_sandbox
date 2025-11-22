@@ -20,7 +20,13 @@
 
 class SceneRenderSystem : public IRenderSystem {
 public:
-	SceneRenderSystem(VkSandboxDevice& device, VkRenderPass renderPass, VkDescriptorSetLayout globalSetLayout, IAssetProvider& assets);
+	SceneRenderSystem(
+		VkSandboxDevice& device,
+		VkRenderPass renderPass,
+		VkDescriptorSetLayout globalSetLayout,
+		VkDescriptorSetLayout iblSetLayout,
+		const std::vector<VkDescriptorSet>& iblDescriptorSets
+	);
 	~SceneRenderSystem();
 
 	SceneRenderSystem(const SceneRenderSystem&) = delete;
@@ -35,18 +41,21 @@ public:
 	void record(const RGContext& rgctx, FrameInfo& frame);
 
 private:
-	void createPipelineLayout(VkDescriptorSetLayout globalSetLayout);
+	void createPipelineLayout(VkDescriptorSetLayout globalSetLayout, VkDescriptorSetLayout iblSetLayout);
 	void createPipeline(VkRenderPass renderPass);
 
 	VkSandboxDevice& m_device;
 
-	VkDescriptorSetLayout m_globalSetLayout;
+	VkDescriptorSetLayout						  m_globalSetLayout;
+	VkDescriptorSetLayout						  m_iblSetLayout;
+	std::vector<VkDescriptorSet>				  m_iblDescriptorSets;
 
 	std::unique_ptr<VkSandboxPipeline> m_opaquePipeline;
 	std::unique_ptr<VkSandboxPipeline> m_maskPipeline;
 	std::unique_ptr<VkSandboxPipeline> m_blendPipeline;
 	VkPipelineLayout m_pipelineLayout;
 
-	IAssetProvider& m_assets;
+
+
 };
 

@@ -7,61 +7,21 @@ GltfRenderSystem::GltfRenderSystem(
     VkSandboxDevice& device,
     VkRenderPass renderPass,
     VkDescriptorSetLayout globalSetLayout,
-    VkSandboxDescriptorPool& descriptorPool,
-    IAssetProvider& assets,
-    size_t frameCount
-) :
-    m_device(device),
-    m_globalSetLayout(globalSetLayout),
-    m_assets(assets)
+    VkDescriptorSetLayout iblSetLayout,
+    const std::vector<VkDescriptorSet>& iblDescriptorSets
+)
+    : m_device(device)
+    , m_globalSetLayout(globalSetLayout)
+    , m_iblSetLayout(iblSetLayout)
+    , m_iblDescriptorSets(iblDescriptorSets)
 {
-    init(device,renderPass,globalSetLayout, descriptorPool, frameCount);
+    createPipelineLayout(globalSetLayout, iblSetLayout);
+    createPipeline(renderPass);
 }
+
 
 GltfRenderSystem::~GltfRenderSystem() {
     vkDestroyPipelineLayout(m_device.device(), m_pipelineLayout, nullptr);
-}
-
-
-void GltfRenderSystem::init(
-    VkSandboxDevice& device,
-    VkRenderPass renderPass,
-    VkDescriptorSetLayout globalSetLayout,
-    VkSandboxDescriptorPool& descriptorPool,
-    size_t frameCount
-) {
-    m_globalSetLayout = globalSetLayout;
-
-    m_iblLayout = VkSandboxDescriptorSetLayout::Builder{ device }
-        .addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
-        .addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
-        .addBinding(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
-        .build();
-
-    createPipelineLayout(globalSetLayout);
-    createPipeline(renderPass);
-
-    m_iblDescriptorSets.resize(frameCount);
-    for (uint32_t i = 0; i < frameCount; i++) {
-        VkDescriptorSet set;
-        descriptorPool.allocateDescriptor(
-            m_iblLayout->getDescriptorSetLayout(),
-            set,
-            /*setIndex=*/0
-        );
-
-        auto brdfInfo = m_assets.getBRDFLUTDescriptor();
-        auto irradianceInfo = m_assets.getIrradianceDescriptor();
-        auto prefilterInfo = m_assets.getPrefilteredDescriptor();
-
-        VkSandboxDescriptorWriter(*m_iblLayout, descriptorPool)
-            .writeImage(0, &brdfInfo)
-            .writeImage(1, &irradianceInfo)
-            .writeImage(2, &prefilterInfo)
-            .build(set);
-
-        m_iblDescriptorSets[i] = set;
-    }
 }
 
 void GltfRenderSystem::render(FrameInfo& frame) {
@@ -143,25 +103,27 @@ void GltfRenderSystem::record(const RGContext& rgctx, FrameInfo& frame) {
 }
 
 
-
-
-void GltfRenderSystem::createPipelineLayout(VkDescriptorSetLayout globalSetLayout) {
+void GltfRenderSystem::createPipelineLayout(
+    VkDescriptorSetLayout globalSetLayout,
+    VkDescriptorSetLayout iblSetLayout
+) {
     const std::vector<VkDescriptorSetLayout> layouts = {
-       globalSetLayout,                         // set 0: global UBO
-       vkglTF::descriptorSetLayoutUbo,          // set 1: per-node UBO
-       vkglTF::descriptorSetLayoutImage,        // set 2: material image samplers (albedo/normal/metal/rough/ao)
-       m_iblLayout->getDescriptorSetLayout()    // set 3: IBL (brdf/irradiance/prefilter)
+        globalSetLayout,                 // set = 0
+        vkglTF::descriptorSetLayoutUbo,  // set = 1
+        vkglTF::descriptorSetLayoutImage,// set = 2
+        iblSetLayout                     // set = 3 
     };
 
     VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    pipelineLayoutInfo.setLayoutCount = static_cast<uint32_t>(layouts.size());
+    pipelineLayoutInfo.setLayoutCount = (uint32_t)layouts.size();
     pipelineLayoutInfo.pSetLayouts = layouts.data();
 
     if (vkCreatePipelineLayout(m_device.device(), &pipelineLayoutInfo, nullptr, &m_pipelineLayout) != VK_SUCCESS) {
         throw std::runtime_error("Failed to create GLTF pipeline layout");
     }
 }
+
 
 void GltfRenderSystem::createPipeline(VkRenderPass renderPass) {
     assert(m_pipelineLayout != VK_NULL_HANDLE);

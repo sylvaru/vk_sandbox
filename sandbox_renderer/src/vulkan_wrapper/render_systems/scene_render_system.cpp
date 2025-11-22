@@ -6,13 +6,15 @@ SceneRenderSystem::SceneRenderSystem(
     VkSandboxDevice& device,
     VkRenderPass renderPass,
     VkDescriptorSetLayout globalSetLayout,
-    IAssetProvider& assets
-) :
-    m_device(device),
-    m_globalSetLayout(globalSetLayout),
-    m_assets(assets)
+    VkDescriptorSetLayout iblSetLayout,
+    const std::vector<VkDescriptorSet>& iblDescriptorSets
+)   : m_device(device)
+    , m_globalSetLayout(globalSetLayout)
+    , m_iblSetLayout(iblSetLayout)
+    , m_iblDescriptorSets(iblDescriptorSets)
 {
-    init(device, renderPass, globalSetLayout);
+    createPipelineLayout(globalSetLayout, iblSetLayout);
+    createPipeline(renderPass);
 }
 
 SceneRenderSystem::~SceneRenderSystem() {
@@ -20,22 +22,11 @@ SceneRenderSystem::~SceneRenderSystem() {
 }
 
 
-void SceneRenderSystem::init(
-    VkSandboxDevice& device,
-    VkRenderPass renderPass,
-    VkDescriptorSetLayout globalSetLayout
-) {
-    m_globalSetLayout = globalSetLayout;
-
-
-    createPipelineLayout(globalSetLayout);
-    createPipeline(renderPass);
-
-}
-
 void SceneRenderSystem::render(FrameInfo& frame) {
     const RenderableRegistry* registry = frame.renderRegistry;
     if (!registry) return;
+
+    VkCommandBuffer cmd = frame.commandBuffer;
 
     // Get all scene-type instances
     const auto& instances = registry->getInstancePool();
@@ -55,7 +46,7 @@ void SceneRenderSystem::render(FrameInfo& frame) {
         vkglTF::Model* model = inst->model;
         if (!model) continue;
 
-        model->bind(frame.commandBuffer);
+        model->bind(cmd);
 
         // Update transforms (could later be GPU-buffer-driven)
         const glm::mat4& world = inst->transform.model;
@@ -84,7 +75,7 @@ void SceneRenderSystem::render(FrameInfo& frame) {
                 };
 
                 vkCmdBindDescriptorSets(
-                    frame.commandBuffer,
+                    cmd,
                     VK_PIPELINE_BIND_POINT_GRAPHICS,
                     m_pipelineLayout,
                     0,
@@ -93,6 +84,19 @@ void SceneRenderSystem::render(FrameInfo& frame) {
                     0,
                     nullptr
                 );
+
+
+                VkDescriptorSet iblSet = m_iblDescriptorSets[frame.frameIndex];
+                if (iblSet != VK_NULL_HANDLE) {
+                    vkCmdBindDescriptorSets(
+                        cmd,
+                        VK_PIPELINE_BIND_POINT_GRAPHICS,
+                        m_pipelineLayout,
+                        3, 1, &iblSet,
+                        0, nullptr
+                    );
+                }
+
 
                 // Pick pipeline by alpha mode
                 switch (primitive->material.alphaMode) {
@@ -109,7 +113,7 @@ void SceneRenderSystem::render(FrameInfo& frame) {
                 }
 
                 // Draw node
-                model->drawNode(node, frame.commandBuffer, vkglTF::RenderFlags::BindImages, m_pipelineLayout, 2);
+                model->drawNode(node, cmd, vkglTF::RenderFlags::BindImages, m_pipelineLayout, 2);
             }
         }
     }
@@ -124,11 +128,12 @@ void SceneRenderSystem::record(const RGContext& rgctx, FrameInfo& frame) {
 }
 
 
-void SceneRenderSystem::createPipelineLayout(VkDescriptorSetLayout globalSetLayout) {
+void SceneRenderSystem::createPipelineLayout(VkDescriptorSetLayout globalSetLayout, VkDescriptorSetLayout iblSetLayout) {
     const std::vector<VkDescriptorSetLayout> layouts = {
         globalSetLayout,
         vkglTF::descriptorSetLayoutUbo,
-        vkglTF::descriptorSetLayoutImage
+        vkglTF::descriptorSetLayoutImage,
+        iblSetLayout
     };
 
     VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
@@ -137,7 +142,7 @@ void SceneRenderSystem::createPipelineLayout(VkDescriptorSetLayout globalSetLayo
     pipelineLayoutInfo.pSetLayouts = layouts.data();
 
     if (vkCreatePipelineLayout(m_device.device(), &pipelineLayoutInfo, nullptr, &m_pipelineLayout) != VK_SUCCESS) {
-        throw std::runtime_error("Failed to create GLTF pipeline layout");
+        throw std::runtime_error("Failed to create Scene pipeline layout");
     }
 }
 
