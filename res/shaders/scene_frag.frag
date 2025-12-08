@@ -135,5 +135,5 @@ void main() {
     vec3 color = lighting + ambientIBL;
     color = ACESFilm(color * EXPOSURE);
 
-    outFragColor = vec4(color, texColor.a);
+    outFragColor = vec4(color, texColor.rgb);
 }

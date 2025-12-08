@@ -1,7 +1,7 @@
 #version 450 core
 #extension GL_KHR_vulkan_glsl : enable
 #extension GL_GOOGLE_include_directive : enable
-#include "include/tonemapping.glsl"
+#include "include/helpers.glsl"
 
 layout(set = 1, binding = 0) uniform samplerCube skybox;
 
@@ -23,7 +23,7 @@ void main() {
     color = ACESFilm(color);
 
     // gamma
-    color = toSRGB(color);
+    color = linearToSrgb(color);
 
     outColor = vec4(color, 1.0);
 }

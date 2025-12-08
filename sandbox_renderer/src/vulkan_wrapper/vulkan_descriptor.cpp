@@ -249,6 +249,21 @@ VkSandboxDescriptorWriter& VkSandboxDescriptorWriter::writeImage(uint32_t bindin
     return *this;
 }
 
+VkSandboxDescriptorWriter& VkSandboxDescriptorWriter::writeImageArray(
+    uint32_t binding,
+    const std::vector<VkDescriptorImageInfo>& imageInfos)
+{
+    VkWriteDescriptorSet write{};
+    write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    write.dstBinding = binding;
+    write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    write.descriptorCount = static_cast<uint32_t>(imageInfos.size());
+    write.pImageInfo = imageInfos.data();
+
+    m_writes.push_back(write);
+    return *this;
+}
+
 bool VkSandboxDescriptorWriter::build(VkDescriptorSet& set) {
     bool success = m_pool.allocateDescriptor(m_setLayout.getDescriptorSetLayout(), set, m_variableDescriptorCount);
     if (!success) return false;

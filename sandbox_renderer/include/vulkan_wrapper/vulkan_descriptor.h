@@ -117,7 +117,7 @@ public:
     VkSandboxDescriptorWriter& writeBuffer(uint32_t binding, VkDescriptorBufferInfo* bufferInfo);
     VkSandboxDescriptorWriter& writeImage(uint32_t binding,const VkDescriptorImageInfo* imageInfo);
     VkSandboxDescriptorWriter& writeImage(uint32_t binding,const VkDescriptorImageInfo* imageInfos, uint32_t count);
-
+    VkSandboxDescriptorWriter& writeImageArray(uint32_t binding, const std::vector<VkDescriptorImageInfo>& imageInfos);
     bool build(VkDescriptorSet& set);
     void overwrite(VkDescriptorSet& set);
 
