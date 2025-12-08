@@ -14,7 +14,6 @@ void SandboxMNKController::mouseCallback(glm::vec2 delta) {
 }
 
 
-
 void SandboxMNKController::update(float dt, std::shared_ptr<IWindowInput> input, TransformComponent& transform) {
     if (!input || dt <= 0.0f) return;
 

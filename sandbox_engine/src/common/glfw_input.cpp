@@ -17,10 +17,6 @@ void GLFWWindowInput::lockCursor(bool lock) {
     m_firstMouse = true;
 }
 
-void GLFWWindowInput::setCursorCallback(std::function<void(double, double)> callback) {
-    m_cursorCallback = std::move(callback);
-}
-
 // static callback called by GLFW
 void GLFWWindowInput::cursorPosCallbackStatic(GLFWwindow* window, double x, double y) {
     auto* userData = static_cast<WindowUserData*>(glfwGetWindowUserPointer(window));
@@ -41,11 +37,17 @@ void GLFWWindowInput::cursorPosCallbackStatic(GLFWwindow* window, double x, doub
     self->m_lastX = x;
     self->m_lastY = y;
 
-    if (self->m_cursorCallback) {
-        self->m_cursorCallback(dx, dy);
-    }
+    self->m_accumDX += dx;
+    self->m_accumDY += dy;
 }
 
+
+void GLFWWindowInput::consumeMouseDelta(double& dx, double& dy) {
+    dx = m_accumDX;
+    dy = m_accumDY;
+    m_accumDX = 0.0f;
+    m_accumDY = 0.0f;
+}
 void GLFWWindowInput::getFramebufferSize(int& width, int& height) const {
     glfwGetFramebufferSize(m_pwindow, &width, &height);
 }

@@ -9,15 +9,14 @@ public:
     explicit GLFWWindowInput(GLFWwindow* window);
 
     void lockCursor(bool lock) override;
-    void setCursorCallback(std::function<void(double, double)> callback) override;
     void getFramebufferSize(int& width, int& height) const override;
     bool isKeyPressed(SandboxKey key) const override;
     bool isMouseButtonPressed(int button) const override;
+    void consumeMouseDelta(double& dx, double& dy) override;
 
     void* getWindowUserPointer()const override {
         return glfwGetWindowUserPointer(m_pwindow);
     }
-
 
     inline void setUserPointer(void* ptr) override{
         glfwSetWindowUserPointer(m_pwindow, ptr);
@@ -51,7 +50,8 @@ private:
     mutable double m_lastY = 0.0;
     mutable bool m_firstMouse = true;
 
-    std::function<void(double, double)> m_cursorCallback;
+    double m_accumDX = 0.0;
+    double m_accumDY = 0.0;
 
 
     static void internalKeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
@@ -70,8 +70,4 @@ private:
 
         self->m_keyCallback(sandboxKey, scancode, sandboxAction, mods);
     }
-
-
-
-
 };
