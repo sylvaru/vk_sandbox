@@ -10,18 +10,17 @@ SandboxMNKController::SandboxMNKController(float moveSpeed, float mouseSensitivi
 }
 
 void SandboxMNKController::mouseCallback(glm::vec2 delta) {
-    m_rawDelta = delta;
+    m_rawDelta += delta;
 }
+
 
 
 void SandboxMNKController::update(float dt, std::shared_ptr<IWindowInput> input, TransformComponent& transform) {
     if (!input || dt <= 0.0f) return;
 
-    float alpha = 1.0f - std::exp(-m_smoothing * dt);
-    m_smoothDelta += (m_rawDelta - m_smoothDelta) * alpha;
+    float deltaYaw = m_rawDelta.x * m_mouseSensitivity;
+    float deltaPitch = -m_rawDelta.y * m_mouseSensitivity;
 
-    float deltaYaw = m_smoothDelta.x * m_mouseSensitivity;
-    float deltaPitch = -m_smoothDelta.y * m_mouseSensitivity;
 
     m_yaw += deltaYaw;
     m_pitch += deltaPitch;

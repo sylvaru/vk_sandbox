@@ -21,6 +21,13 @@ SandboxPlayer::SandboxPlayer(std::shared_ptr<IWindowInput> input,
     m_transform.rotation = startRotRad;
 }
 void SandboxPlayer::onInit() {
+
+    m_pInput->setCursorCallback(
+        [this](double dx, double dy) {
+            m_controller.mouseCallback(glm::vec2(dx, dy));
+        }
+    );
+
     // Initialize controller yaw/pitch from transform
     m_controller.mouseCallback(glm::vec2(0.f)); // reset delta
     const glm::vec3 rot = m_transform.rotation;
@@ -33,9 +40,6 @@ void SandboxPlayer::onInit() {
 void SandboxPlayer::onUpdate(float dt) {
     if (!m_pInput) return;
 
-    double dx = 0, dy = 0;
-    m_pInput->getMouseDelta(dx, dy);
-    m_controller.mouseCallback(glm::vec2(dx, dy));
     m_controller.update(dt, m_pInput, m_transform);
 
     m_camera.setPosition(m_transform.translation);

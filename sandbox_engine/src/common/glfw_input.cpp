@@ -6,6 +6,10 @@ GLFWWindowInput::GLFWWindowInput(GLFWwindow* window)
         glfwSetInputMode(m_pwindow, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
     }
     glfwSetKeyCallback(m_pwindow, internalKeyCallback);
+
+    glfwSetCursorPosCallback(
+        m_pwindow,
+        GLFWWindowInput::cursorPosCallbackStatic);
 }
 
 void GLFWWindowInput::lockCursor(bool lock) {
@@ -13,22 +17,33 @@ void GLFWWindowInput::lockCursor(bool lock) {
     m_firstMouse = true;
 }
 
-void GLFWWindowInput::setCursorCallback(void (*callback)(double, double)) {
-    m_cursorCallback = callback;
-    glfwSetCursorPosCallback(m_pwindow, GLFWWindowInput::cursorPosCallbackStatic);
+void GLFWWindowInput::setCursorCallback(std::function<void(double, double)> callback) {
+    m_cursorCallback = std::move(callback);
 }
-
-
 
 // static callback called by GLFW
 void GLFWWindowInput::cursorPosCallbackStatic(GLFWwindow* window, double x, double y) {
     auto* userData = static_cast<WindowUserData*>(glfwGetWindowUserPointer(window));
     if (!userData || !userData->input) return;
 
-    auto* input = userData->input;
-    auto* self = dynamic_cast<GLFWWindowInput*>(input);  // cast only if needed
-    if (self && self->m_cursorCallback)
-        self->m_cursorCallback(x, y);
+    auto* self = static_cast<GLFWWindowInput*>(userData->input);
+
+    if (self->m_firstMouse) {
+        self->m_lastX = x;
+        self->m_lastY = y;
+        self->m_firstMouse = false;
+        return;
+    }
+
+    double dx = x - self->m_lastX;
+    double dy = y - self->m_lastY;
+
+    self->m_lastX = x;
+    self->m_lastY = y;
+
+    if (self->m_cursorCallback) {
+        self->m_cursorCallback(dx, dy);
+    }
 }
 
 void GLFWWindowInput::getFramebufferSize(int& width, int& height) const {
@@ -43,31 +58,6 @@ bool GLFWWindowInput::isKeyPressed(SandboxKey key) const {
 
 bool GLFWWindowInput::isMouseButtonPressed(int button) const {
     return glfwGetMouseButton(m_pwindow, button) == GLFW_PRESS;
-}
-
-void GLFWWindowInput::getMouseDelta(double& dx, double& dy) {
-    double xpos, ypos;
-    glfwGetCursorPos(m_pwindow, &xpos, &ypos);
-
-    if (glfwGetInputMode(m_pwindow, GLFW_CURSOR) != GLFW_CURSOR_DISABLED) {
-        m_lastX = xpos;
-        m_lastY = ypos;
-        dx = 0.0;
-        dy = 0.0;
-        return;
-    }
-
-    if (m_firstMouse) {
-        m_lastX = xpos;
-        m_lastY = ypos;
-        m_firstMouse = false;
-    }
-
-    dx = xpos - m_lastX;
-    dy = ypos - m_lastY;
-
-    m_lastX = xpos;
-    m_lastY = ypos;
 }
 
 int GLFWWindowInput::mapKeyToGLFW(SandboxKey key) const {
