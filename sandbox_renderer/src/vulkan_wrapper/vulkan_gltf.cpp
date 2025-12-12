@@ -18,9 +18,8 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #define TINYGLTF_NO_STB_IMAGE_WRITE
 
+#include "common/renderer_pch.h"
 #include "vulkan_wrapper/vulkan_gltf.h"
-#include "vk_tools/vk_tools.h"
-#include <spdlog/spdlog.h>
 
 VkDescriptorSetLayout  vkglTF::descriptorSetLayoutImage = VK_NULL_HANDLE;
 VkDescriptorSetLayout  vkglTF::descriptorSetLayoutIbl = VK_NULL_HANDLE;

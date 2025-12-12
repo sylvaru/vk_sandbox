@@ -1,3 +1,4 @@
+#include "common/renderer_pch.h"
 #include "vulkan_wrapper/core/vulkan_renderer.h"
 #include "vulkan_wrapper/core/render_graph.h"
 #include "vulkan_wrapper/render_systems/gltf_render_system.h"
@@ -5,10 +6,7 @@
 #include "vulkan_wrapper/render_systems/skybox_render_system.h"
 #include "vulkan_wrapper/render_systems/pointlight_render_system.h"
 
-#include <stdexcept>
-#include <array>
-#include <cassert>
-#include <spdlog/spdlog.h>
+constexpr uint32_t MAX_BINDLESS_TEXTURES = 8192;
 
 
 VkSandboxRenderer::VkSandboxRenderer(
@@ -22,10 +20,12 @@ VkSandboxRenderer::VkSandboxRenderer(
     allocateGlobalDescriptors();
 }
 
-VkSandboxRenderer::~VkSandboxRenderer() {
+VkSandboxRenderer::~VkSandboxRenderer() 
+{
     freeCommandBuffers();
 }
-void VkSandboxRenderer::createGlobalDescriptorObjects() {
+void VkSandboxRenderer::createGlobalDescriptorObjects() 
+{
 
     // TODO: stop using magic numbers here
     m_pool = VkSandboxDescriptorPool::Builder{ m_device }
@@ -40,9 +40,21 @@ void VkSandboxRenderer::createGlobalDescriptorObjects() {
             VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
             VK_SHADER_STAGE_ALL_GRAPHICS)
         .build();
+
+    m_bindlessLayout = VkSandboxDescriptorSetLayout::Builder{ m_device }
+        .addBinding(0,
+            VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+            VK_SHADER_STAGE_FRAGMENT_BIT,
+            MAX_BINDLESS_TEXTURES,
+            VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT |
+            VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT |
+            VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT
+        )
+        .build();
 }
 
-void VkSandboxRenderer::allocateGlobalDescriptors() {
+void VkSandboxRenderer::allocateGlobalDescriptors() 
+{
     
     m_uboBuffers.resize(FrameCount);
     for (uint32_t i = 0; i < FrameCount; i++) {
@@ -74,6 +86,17 @@ void VkSandboxRenderer::allocateGlobalDescriptors() {
         m_globalDescriptorSets[i] = set;
     }
     
+}
+
+void VkSandboxRenderer::allocateBindlessDescriptors(
+    const std::vector<VkDescriptorImageInfo>& images,
+    VkDescriptorBufferInfo& materialBufferInfo) 
+{
+    VkSandboxDescriptorWriter(*m_bindlessLayout, *m_pool)
+        .writeImage(0, images.data(),
+            static_cast<uint32_t>(images.size()))
+        .writeBuffer(1, &materialBufferInfo)
+        .build(m_bindlessDescriptorSet);
 }
 
 void VkSandboxRenderer::initializeSystems(
@@ -153,7 +176,8 @@ void VkSandboxRenderer::updateSystems(FrameInfo& frame, GlobalUbo& ubo, float de
     m_pointLightSystem->update(frame, ubo);
 }
 
-void VkSandboxRenderer::renderSystems(FrameInfo& info, FrameContext& frame) {
+void VkSandboxRenderer::renderSystems(FrameInfo& info, FrameContext& frame) 
+{
     RenderGraph graph;
 
     uint32_t imgIndex = frame.imageIndex;
@@ -248,7 +272,8 @@ void VkSandboxRenderer::renderSystems(FrameInfo& info, FrameContext& frame) {
 }
 
 
-ISandboxRenderer::FrameContext VkSandboxRenderer::beginFrame() {
+ISandboxRenderer::FrameContext VkSandboxRenderer::beginFrame() 
+{
     // AcquireNextImage does the fence‐wait for the current in‐flight frame internally
     VkResult result = m_swapchain->acquireNextImage(&m_currentImageIndex);
     if (result == VK_ERROR_OUT_OF_DATE_KHR) {
@@ -281,7 +306,8 @@ ISandboxRenderer::FrameContext VkSandboxRenderer::beginFrame() {
     ctx.frameFence = m_swapchain->getFence(m_currentFrameIndex);
     return ctx;
 }
-void VkSandboxRenderer::endFrame(FrameContext& frame) {
+void VkSandboxRenderer::endFrame(FrameContext& frame) 
+{
     assert(m_bIsFrameStarted && "endFrame() called when no frame in progress");
 
     if (vkEndCommandBuffer(frame.primaryGraphicsCommandBuffer) != VK_SUCCESS) {
@@ -350,7 +376,8 @@ void VkSandboxRenderer::endSwapChainRenderPass(FrameContext& frame)
     vkCmdEndRenderPass(frame.primaryGraphicsCommandBuffer);
 }
 
-void VkSandboxRenderer::createCommandBuffers() {
+void VkSandboxRenderer::createCommandBuffers() 
+{
     size_t imageCount = m_swapchain->imageCount();
     m_commandBuffers.resize(imageCount);
 
@@ -370,7 +397,8 @@ void VkSandboxRenderer::createCommandBuffers() {
 }
 
 
-void VkSandboxRenderer::createSwapChain() {
+void VkSandboxRenderer::createSwapChain() 
+{
 
     auto extent = m_window.getExtent();
     glfwWaitEvents();
@@ -398,7 +426,8 @@ void VkSandboxRenderer::createSwapChain() {
 
     createCommandBuffers();
 }
-void VkSandboxRenderer::freeCommandBuffers() {
+void VkSandboxRenderer::freeCommandBuffers() 
+{
     if (m_commandBuffers.empty()) { return; }
 
     vkFreeCommandBuffers(
@@ -412,7 +441,8 @@ void VkSandboxRenderer::freeCommandBuffers() {
 }
 
 
-VkCommandBuffer VkSandboxRenderer::createSingleUseCommandBuffer() {
+VkCommandBuffer VkSandboxRenderer::createSingleUseCommandBuffer() 
+{
     VkCommandBufferAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
     allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
@@ -430,7 +460,8 @@ VkCommandBuffer VkSandboxRenderer::createSingleUseCommandBuffer() {
     return cmd;
 }
 
-void VkSandboxRenderer::flushAndSubmitSingleUseCommandBuffer(VkCommandBuffer cmd) {
+void VkSandboxRenderer::flushAndSubmitSingleUseCommandBuffer(VkCommandBuffer cmd) 
+{
     vkEndCommandBuffer(cmd);
 
     VkSubmitInfo submitInfo{};
@@ -444,11 +475,13 @@ void VkSandboxRenderer::flushAndSubmitSingleUseCommandBuffer(VkCommandBuffer cmd
     vkFreeCommandBuffers(m_device.device(), m_commandPool, 1, &cmd);
 }
 
-void VkSandboxRenderer::waitDeviceIdle() {
+void VkSandboxRenderer::waitDeviceIdle() 
+{
     vkDeviceWaitIdle(m_device.device());
 }
 
-void VkSandboxRenderer::createIblDescriptors(IAssetProvider& provider) {
+void VkSandboxRenderer::createIblDescriptors(IAssetProvider& provider)
+{
     if (!m_iblLayout) {
         m_iblLayout = VkSandboxDescriptorSetLayout::Builder{ m_device }
             .addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
@@ -528,7 +561,8 @@ void VkSandboxRenderer::initImGui(
 }
 
 
-const void VkSandboxRenderer::beginImGuiFrame() {
+const void VkSandboxRenderer::beginImGuiFrame() 
+{
     if (!m_imguiInitialized) return;
 
     ImGui_ImplVulkan_NewFrame();
@@ -538,14 +572,16 @@ const void VkSandboxRenderer::beginImGuiFrame() {
 
 }
 
-const void VkSandboxRenderer::renderImGui(FrameContext& frame) {
+const void VkSandboxRenderer::renderImGui(FrameContext& frame)
+{
     if (!m_imguiInitialized) return;
     ImGui::Render();
     ImDrawData* draw_data = ImGui::GetDrawData();
     ImGui_ImplVulkan_RenderDrawData(draw_data, frame.primaryGraphicsCommandBuffer);
 }
 
-void VkSandboxRenderer::shutdownImGui() {
+void VkSandboxRenderer::shutdownImGui() 
+{
     if (!m_imguiInitialized) return;
 
     vkDestroyDescriptorPool(m_device.device(), m_imguiDescriptorPool, nullptr);
@@ -555,7 +591,8 @@ void VkSandboxRenderer::shutdownImGui() {
     m_imguiInitialized = false;
 }
 
-VkDescriptorPool VkSandboxRenderer::create_imgui_descriptor_pool(VkDevice device) {
+VkDescriptorPool VkSandboxRenderer::create_imgui_descriptor_pool(VkDevice device) 
+{
     std::array<VkDescriptorPoolSize, 11> poolSizes = {};
     poolSizes[0] = VkDescriptorPoolSize{ VK_DESCRIPTOR_TYPE_SAMPLER, 1000 };
     poolSizes[1] = VkDescriptorPoolSize{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000 };

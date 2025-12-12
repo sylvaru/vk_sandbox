@@ -1,3 +1,4 @@
+#include "common/engine_pch.h"
 #include "base/engine_scene_base.h"
 
 EngineSceneBase::EngineSceneBase(Core::AssetManager* assetManager)

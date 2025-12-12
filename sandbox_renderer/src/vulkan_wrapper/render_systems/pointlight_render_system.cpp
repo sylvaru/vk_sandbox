@@ -1,19 +1,8 @@
-
+#include "common/renderer_pch.h"
 #include "vulkan_wrapper/render_systems/pointlight_render_system.h"
 #include "frame_info.h"
 #include "interfaces/game_object_i.h"
-// libs
-#define GLM_FORCE_RADIANS
-#define GLM_FORCE_DEPTH_ZERO_TO_ONE
-#include <glm/glm.hpp>
-#include <glm/gtc/constants.hpp>
-#include <glm/gtx/transform.hpp>
-// std
-#include <array>
-#include <cassert>
-#include <map>
-#include <stdexcept>
-#include <cassert>
+
 
 
 // Define light constants

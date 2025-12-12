@@ -1,12 +1,7 @@
 // vulkan_pipeline.cpp
+#include "common/renderer_pch.h"
 #include "vulkan_wrapper/vulkan_pipeline.h"
 #include "vulkan_wrapper/vulkan_obj.h"
-
-// std
-#include <fstream>
-#include <stdexcept>
-#include <iostream>
-#include <cassert>
 
 
 

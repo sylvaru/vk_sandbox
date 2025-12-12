@@ -15,6 +15,11 @@ add_library(sandbox_engine STATIC
     src/physics/physics_engine.cpp
     include/base/engine_scene_base.h 
     src/base/engine_scene_base.cpp 
+ )
+
+ target_precompile_headers(sandbox_engine
+    PRIVATE
+    include/common/engine_pch.h
 )
 
 target_include_directories(sandbox_engine

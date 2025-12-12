@@ -12,16 +12,15 @@
 #include "physics/physics_engine.h"
 
 
-#include <spdlog/spdlog.h>
-
 namespace Core {
 
     struct EngineSpecification {
-        std::string Name = "";
+        std::string name = "";
 
         struct WindowSpecification {
-            uint32_t Width = 1920;
-            uint32_t Height = 1080;
+            uint32_t width = 1920;
+            uint32_t height = 1080;
+            bool isFullscreenBorderless = false;
         } windowSpec;
     };
 

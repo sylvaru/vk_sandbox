@@ -20,6 +20,11 @@ target_sources(sandbox_game
         src/camera/camera.cpp
 )
 
+target_precompile_headers(sandbox_game
+    PRIVATE
+    include/common/game_pch.h
+)
+
 target_include_directories(sandbox_game
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/include

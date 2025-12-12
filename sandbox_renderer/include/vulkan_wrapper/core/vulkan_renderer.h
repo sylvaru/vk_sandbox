@@ -93,6 +93,7 @@ private:
 	bool										       m_bIsFrameStarted = false;
 
 	std::unique_ptr<VkSandboxDescriptorSetLayout>		  m_globalLayout;
+	std::unique_ptr<VkSandboxDescriptorSetLayout>		m_bindlessLayout;
 
 	VkSandboxDevice&											m_device;
 	SandboxWindow&											    m_window;
@@ -119,9 +120,13 @@ private:
 	std::vector<VkDescriptorSet> m_iblDescriptorSets;
 	std::unique_ptr<VkSandboxDescriptorSetLayout> m_iblLayout;  
 
+	// Bindless 
+	VkDescriptorSet m_bindlessDescriptorSet;
+
 
 	void createGlobalDescriptorObjects();
 	void allocateGlobalDescriptors();
+	void allocateBindlessDescriptors(const std::vector<VkDescriptorImageInfo>&images, VkDescriptorBufferInfo& materialBufferInfo);
 	void createIblDescriptors(IAssetProvider& provider);
 
 	void createSwapChain();

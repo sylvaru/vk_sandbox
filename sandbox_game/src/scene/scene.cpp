@@ -1,12 +1,7 @@
+#include "common/game_pch.h"
 #include "scene/scene.h"
 #include "entities/player.h"
 #include "entities/game_object.h"
-
-#include <json.hpp>
-
-
-#include <glm/gtc/constants.hpp>
-#include <spdlog/spdlog.h>
 
 
 using json = nlohmann::json;
@@ -33,13 +28,6 @@ void SandboxScene::initSceneData() {
 
     m_players.push_back(player);
     m_gameObjects[player->getId()] = player;
-
-    spdlog::info("Spawned player at ({:.2f}, {:.2f}, {:.2f}), rot (deg) ({:.2f}, {:.2f}, {:.2f}), fov {:.1f}, sens {:.2f}, speed {:.2f}",
-        m_initialPlayerPosition.x, m_initialPlayerPosition.y, m_initialPlayerPosition.z,
-        glm::degrees(m_initialPlayerRotation.x),
-        glm::degrees(m_initialPlayerRotation.y),
-        glm::degrees(m_initialPlayerRotation.z),
-        m_initialPlayerFov, m_initialPlayerSensitivity, m_initialPlayerMoveSpeed);
 
     init();
 }
@@ -273,12 +261,10 @@ void SandboxScene::attachRenderable(std::shared_ptr<IGameObject> go,
     );
 }
 
-
-
 std::pair<glm::mat4, glm::mat4>
 SandboxScene::getMainCameraMatrices() const
 {
-    const auto& cam = m_players[0]->getCamera();
+    const auto& cam = m_players[0]->getController().getCamera();
     return { cam.getViewMatrix(), cam.getProjectionMatrix() };
 }
 
@@ -292,5 +278,5 @@ SandboxCamera& SandboxScene::getCamera() {
         throw std::runtime_error("first player is not a SandboxPlayer");
     }
 
-    return player->getCamera();
+    return player->getController().getCamera();
 }

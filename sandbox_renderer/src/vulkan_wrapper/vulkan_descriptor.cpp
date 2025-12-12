@@ -1,9 +1,7 @@
+#include "common/renderer_pch.h"
 #include "vulkan_wrapper/vulkan_descriptor.h"
 
 
-// std
-#include <cassert>
-#include <stdexcept>
 
 uint32_t maxTextures = 1000;
 

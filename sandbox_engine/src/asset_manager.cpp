@@ -1,11 +1,7 @@
 // asset_manager.cpp
+#include "common/engine_pch.h"
 #include "asset_manager.h"
-
-#include <json.hpp>
-#include <spdlog/spdlog.h>
-#include <glm/glm.hpp>
-
-#include "common_tools.h"
+#include "common/common_tools.h"
 
 
 using json = nlohmann::json;
@@ -401,18 +397,22 @@ namespace Core {
 
 
 
-    void AssetManager::registerTextureIfNeeded(
+    size_t AssetManager::registerTextureIfNeeded(
         const std::string& name,
         const std::shared_ptr<VkSandboxTexture>& tex,
         std::unordered_map<std::string, std::shared_ptr<VkSandboxTexture>>& textures,
         std::unordered_map<std::string, size_t>& textureIndexMap,
         std::vector<std::shared_ptr<VkSandboxTexture>>& textureList)
     {
-        if (textures.find(name) == textures.end()) {
-            textures[name] = tex;
-            textureList.push_back(tex);
-            textureIndexMap[name] = textureList.size() - 1;
-        }
+        auto it = m_textureIndexMap.find(name);
+        if (it != m_textureIndexMap.end())
+            return it->second;
+
+        size_t index = m_textureList.size();
+        m_textureList.push_back(tex);
+        m_textures[name] = tex;
+        m_textureIndexMap[name] = index;
+        return index;
     }
 
 

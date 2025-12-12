@@ -128,12 +128,12 @@ namespace Core {
 
         GLTFmodelHandle m_skyboxModel;
 
-        static void registerTextureIfNeeded(
+        size_t registerTextureIfNeeded(
             const std::string& name,
             const std::shared_ptr<VkSandboxTexture>& tex,
             std::unordered_map<std::string, std::shared_ptr<VkSandboxTexture>>& textures,
             std::unordered_map<std::string, size_t>& textureIndexMap,
-            std::vector<std::shared_ptr<VkSandboxTexture>>& textureList);
+            std::vector<std::shared_ptr<VkSandboxTexture>>& textureList)override;
 
 
     };

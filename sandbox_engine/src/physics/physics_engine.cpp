@@ -1,10 +1,7 @@
+#include "common/engine_pch.h"
 #include "physics/physics_engine.h"
-#include <spdlog/spdlog.h>
-#include <algorithm>
-#include <PxPhysicsAPI.h>
-#include <geometry/PxTriangleMeshGeometry.h>
-#include <extensions/PxRigidActorExt.h>
-#include <cooking/PxCooking.h>
+
+
 
 using namespace physx;
 

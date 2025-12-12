@@ -1,3 +1,4 @@
+#include "common/game_pch.h"
 #include "entities/game_object.h"
 
 SandboxGameObject::SandboxGameObject(id_t objId) : m_id{ objId } {}

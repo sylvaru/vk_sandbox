@@ -1,12 +1,7 @@
+#include "common/renderer_pch.h"
 #include "vulkan_wrapper/vulkan_texture.h"
 #include "vulkan_wrapper/vulkan_device.h"
 #include "vulkan_wrapper/vulkan_pipeline.h"
-
-#include <spdlog/spdlog.h>
-#include <stdexcept>
-
-
-
 
 
 VkSandboxTexture::VkSandboxTexture(VkSandboxDevice* device) : m_pDevice(device) {}

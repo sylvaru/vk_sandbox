@@ -1,6 +1,7 @@
 // obj_model.cpp
+#include "common/renderer_pch.h"
 #include "vulkan_wrapper/vulkan_obj.h"
-#include "vk_tools/vk_tools.h"
+
 
 
 // External

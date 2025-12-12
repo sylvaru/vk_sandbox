@@ -1,9 +1,7 @@
+#include "common/renderer_pch.h"
 #include "vulkan_wrapper/vulkan_instance.h"
 #include <GLFW/glfw3.h>
-#include <stdexcept>
-#include <cstring>
-#include <spdlog/spdlog.h>
-#include <iostream>
+
 
 VkSandboxInstance::VkSandboxInstance() {
     createInstance();

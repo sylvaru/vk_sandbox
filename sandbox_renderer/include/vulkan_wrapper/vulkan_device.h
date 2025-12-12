@@ -40,11 +40,11 @@ public:
 
     uint32_t getMemoryType(uint32_t typeBits, VkMemoryPropertyFlags properties, VkBool32* memTypeFound = nullptr) const;
 
-    VkDevice device() { return m_logicalDevice; }
+    VkDevice device() const { return m_logicalDevice; }
 
-    VkSurfaceKHR surface() { return m_surface; }
-    VkQueue graphicsQueue() { return m_graphicsQueue; }
-    VkQueue presentQueue() { return m_presentQueue; }
+    VkSurfaceKHR surface() const { return m_surface; }
+    VkQueue graphicsQueue() const { return m_graphicsQueue; }
+    VkQueue presentQueue() const { return m_presentQueue; }
     uint32_t graphicsQueueFamilyIndex() const { return m_queueFamilyIndices.graphicsFamily; }
     VkPhysicalDevice physicalDevice() const { return m_physicalDevice; }
 

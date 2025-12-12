@@ -1,9 +1,8 @@
+#include "common/renderer_pch.h"
 #include "vulkan_wrapper/vulkan_swapchain.h"
 #include "vulkan_wrapper/vulkan_device.h"
 #include "vk_tools/vk_init.h"
-#include <stdexcept>
-#include <array>
-#include <spdlog/spdlog.h>
+
 
 VkSandboxSwapchain::VkSandboxSwapchain(VkSandboxDevice& device, VkExtent2D extent)
     :   m_device{ device }, m_windowExtent{ extent } 

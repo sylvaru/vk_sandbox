@@ -9,6 +9,7 @@
 #include "interfaces/window_input_i.h"
 
 
+// TODO: This class belongs in the engine target not in renderer
 class SandboxWindow {
 
 public:
@@ -30,6 +31,7 @@ private:
 	int          m_width, m_height;
 	bool         m_bFramebufferResized = false;
 	std::string  m_window_name;
+
 	GLFWwindow*  m_pwindow = nullptr;
 
 };

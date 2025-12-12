@@ -1,3 +1,4 @@
+#include "common/renderer_pch.h"
 #include "vulkan_wrapper/core/renderable_registry.h"
 
 uint32_t RenderableRegistry::registerMesh(const MeshInfo& mesh) {

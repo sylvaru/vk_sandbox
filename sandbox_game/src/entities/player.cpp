@@ -1,7 +1,7 @@
+#include "common/game_pch.h"
 #include "entities/player.h"
-#include <glm/gtc/matrix_transform.hpp>
 #include "key_codes.h"
-#include <spdlog/spdlog.h>
+
 
 SandboxPlayer::SandboxPlayer(std::shared_ptr<IWindowInput> input,
     const glm::vec3& startPos,
@@ -11,23 +11,37 @@ SandboxPlayer::SandboxPlayer(std::shared_ptr<IWindowInput> input,
     float moveSpeed,
     PhysicsEngine* physics)
     : m_pInput(std::move(input))
-    , m_camera(startPos, glm::degrees(startRotRad).y, glm::degrees(startRotRad).x, fov)
-    , m_mouseSensitivity(sensitivity)
-    , m_moveSpeed(moveSpeed)
-    , m_controller(moveSpeed, sensitivity, physics)
+    , m_initialPosition(startPos)
+    , m_initialRotation(startRotRad)
+    , m_controller(startPos,
+        glm::degrees(startRotRad).y,
+        glm::degrees(startRotRad).x,
+        fov,
+        moveSpeed,
+        sensitivity,
+        physics)
     , m_physics(physics)
+    , m_initialFov(fov)
+    , m_initialSensitivity(sensitivity)
+    , m_initialMoveSpeed(moveSpeed)
 {
-    m_transform.translation = startPos;
-    m_transform.rotation = startRotRad;
 }
+
 void SandboxPlayer::onInit() {
+    // Ensure controller starts at scene JSON defaults
+    const glm::vec3 startPos = m_initialPosition; // from scene JSON
+    const glm::vec3 startRot = m_initialRotation; // radians from scene JSON
 
-    const glm::vec3 rot = m_transform.rotation;
-    m_controller.setOrientation(glm::degrees(rot.y), glm::degrees(rot.x));
+    m_controller.setYawPitch(glm::degrees(startRot.y), glm::degrees(startRot.x));
 
-    m_physics->createFPScontroller(m_transform.translation, 0.3f, 1.8f);
+    // Create physics controller at the correct position
+    m_physics->createFPScontroller(startPos, 0.3f, 1.8f);
     m_controller.setPhysicsController(m_physics->getFPScontroller());
+
+    // Sync camera to physics controller
+    m_controller.getCamera().setPosition(startPos);
 }
+
 
 void SandboxPlayer::onUpdate(float dt) {
     if (!m_pInput) return;
@@ -36,15 +50,14 @@ void SandboxPlayer::onUpdate(float dt) {
     m_pInput->consumeMouseDelta(dx, dy);
     m_controller.mouseCallback(glm::vec2(dx, dy));
 
-    m_controller.update(dt, m_pInput, m_transform);
+    m_controller.update(dt, m_pInput);
 
-    m_camera.setPosition(m_transform.translation);
-    m_camera.setRotation(m_transform.rotation);
+    auto& cam = m_controller.getCamera();
 
     int w, h;
     m_pInput->getFramebufferSize(w, h);
     float aspect = h == 0 ? 1.0f : static_cast<float>(w) / h;
-    m_camera.updateProjection(aspect, 0.1f, 300.f);
+    cam.updateProjection(aspect, 0.1f, 300.f);
 }
 
 TransformComponent& SandboxPlayer::getTransform() {
@@ -55,7 +68,3 @@ std::shared_ptr<IModel> SandboxPlayer::getModel() const {
     return nullptr;
 }
 
-
-SandboxCamera& SandboxPlayer::getCamera() {
-    return m_camera;
-}

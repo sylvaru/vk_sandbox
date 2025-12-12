@@ -1,3 +1,4 @@
+#include "common/renderer_pch.h"
 #include "vulkan_wrapper/render_systems/skybox_render_system.h"
 #include "interfaces/game_object_i.h"
 

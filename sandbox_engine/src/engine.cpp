@@ -1,16 +1,15 @@
 // sandbox_engine/src/engine.cpp
+#include "common/engine_pch.h"
 #include "engine.h"
 #include "key_codes.h"
 #include "frame_info.h"
-#include <thread>
-#include <chrono>
 
 
 namespace Core {
 
 	SandboxEngine::SandboxEngine(const EngineSpecification& engineSpec)
 		: m_engineSpec(engineSpec)
-		, m_window(m_engineSpec.windowSpec.Width, m_engineSpec.windowSpec.Height, m_engineSpec.Name)
+		, m_window(m_engineSpec.windowSpec.width, m_engineSpec.windowSpec.height, m_engineSpec.name)
 		, m_vkinstance()
 		, m_device(m_vkinstance, m_window)
 		, m_assetManager(m_device)
@@ -19,12 +18,17 @@ namespace Core {
 		, m_physicsEngine(std::make_unique<PhysicsEngine>())
 	{
 		m_assetManager.preloadGlobalAssets();
+        spdlog::info("Window: {}x{}, Name: \"{}\"",
+            m_engineSpec.windowSpec.width,
+            m_engineSpec.windowSpec.height,
+            m_engineSpec.name);
 	}
     SandboxEngine::~SandboxEngine() {}
 
 	void SandboxEngine::initialize() {
+
 		if (auto* userData = static_cast<WindowUserData*>(m_windowInput->getWindowUserPointer())) {
-			userData->input = m_windowInput.get();
+			userData->input= m_windowInput.get();
 		}
 		m_windowInput->lockCursor(m_cursorLocked);
 		setupInputCallbacks();

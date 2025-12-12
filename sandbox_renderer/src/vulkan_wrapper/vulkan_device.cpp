@@ -1,11 +1,5 @@
+#include "common/renderer_pch.h"
 #include "vulkan_wrapper/vulkan_device.h"
-
-
-#include <cstring>
-#include <iostream>
-#include <set>
-#include <unordered_set>
-
 
 
 VkSandboxDevice::VkSandboxDevice(VkSandboxInstance& instance, SandboxWindow& window)
@@ -73,11 +67,15 @@ void VkSandboxDevice::createLogicalDevice() {
     // Descriptor Indexing Features
     VkPhysicalDeviceDescriptorIndexingFeatures indexingFeatures{};
     indexingFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
-    indexingFeatures.descriptorBindingPartiallyBound = VK_TRUE;
-    indexingFeatures.descriptorBindingVariableDescriptorCount = VK_TRUE;
-    indexingFeatures.descriptorBindingSampledImageUpdateAfterBind = VK_TRUE;
     indexingFeatures.runtimeDescriptorArray = VK_TRUE;
+    indexingFeatures.descriptorBindingVariableDescriptorCount = VK_TRUE;
+    indexingFeatures.descriptorBindingPartiallyBound = VK_TRUE;
     indexingFeatures.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
+    indexingFeatures.descriptorBindingStorageImageUpdateAfterBind = VK_TRUE;
+    indexingFeatures.descriptorBindingSampledImageUpdateAfterBind = VK_TRUE;
+    indexingFeatures.descriptorBindingUniformBufferUpdateAfterBind = VK_TRUE;
+    indexingFeatures.descriptorBindingStorageBufferUpdateAfterBind = VK_TRUE;
+
 
     // Vulkan 1.3 Features
     VkPhysicalDeviceVulkan13Features vulkan13Features{};

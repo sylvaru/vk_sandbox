@@ -1,9 +1,10 @@
 #pragma once
 
 #include <glm/glm.hpp>
+#include <glm/gtc/quaternion.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtx/quaternion.hpp>
 #include "interfaces/camera_i.h"
-
 
 class SandboxCamera : public ICamera {
 public:
@@ -14,42 +15,38 @@ public:
     void updateProjection(float aspect, float nearZ = 0.1f, float farZ = 100.f);
 
     void move(glm::vec3 delta);
-    void rotate(float yawOffset, float pitchOffset);
-    void setZoom(float zoom);
 
+    // quaternion-based rotate
+    void rotate(float yawOffsetDeg, float pitchOffsetDeg);
+
+    inline void setZoom(float zoom) { m_zoom = glm::clamp(zoom, 1.f, 120.f); }
+    inline void setPosition(const glm::vec3& pos) { m_position = pos; }
+
+    void setRotation(float pitchDeg, float yawDeg);
+
+    glm::vec3 getForwardVector() const { return m_forward; }
+    glm::vec3 getRightVector()   const { return m_right; }
+    glm::vec3 getUpVector()      const { return m_up; }
+
+    glm::mat4 getViewMatrix() const override { return m_viewMatrix; }
+    glm::mat4 getProjectionMatrix() const override { return m_projMatrix; }
+
+    glm::vec3 getPosition() const override { return m_position; }
+    glm::mat4 getInverseViewMatrix() const override { return m_inverseViewMatrix; }
+    void setOrientation(const glm::quat& q);
+private:
     void updateVectors();
 
+    glm::vec3 m_position{ 0.f };
+    glm::quat m_orientation{ 1.f, 0.f, 0.f, 0.f };
 
-    // Getters and setters
-    glm::vec3 getForwardVector() const { return m_front; }
-    glm::vec3 getRightVector() const { return m_right; }
-    glm::vec3 getUpVector() const { return m_up; }
-    glm::mat4 getViewMatrix() const { return m_viewMatrix; }
-    glm::mat4 getProjectionMatrix() const { return m_projMatrix; }
+    glm::vec3 m_forward{ 0.f, 0.f, -1.f };
+    glm::vec3 m_right{ 1.f, 0.f, 0.f };
+    glm::vec3 m_up{ 0.f, 1.f, 0.f };
 
-    float getYaw() const { return m_yaw; }
-    float getPitch() const { return m_pitch; }
+    float m_zoom = 90.f;
 
-    void setYaw(float yaw) { m_yaw = yaw; updateVectors(); }
-    void setPitch(float pitch) { m_pitch = pitch; updateVectors(); }
-    void setRotation(glm::vec3 euler);
-
-    void setPosition(const glm::vec3& pos) { m_position = pos; }
-    glm::vec3 getPosition() const override{ return m_position; }
-    glm::mat4 getInverseViewMatrix() const override { return m_inverseViewMatrix; }
-private:
-    glm::vec3 m_position;
-    glm::vec3 m_front;
-    glm::vec3 m_up;
-    glm::vec3 m_right;
-    glm::vec3 m_worldUp;
-
-    float m_yaw;
-    float m_pitch;
-    float m_zoom;
-
-    glm::mat4 m_viewMatrix;
-    glm::mat4 m_projMatrix;
+    glm::mat4 m_viewMatrix{ 1.f };
+    glm::mat4 m_projMatrix{ 1.f };
     glm::mat4 m_inverseViewMatrix{ 1.f };
-
 };

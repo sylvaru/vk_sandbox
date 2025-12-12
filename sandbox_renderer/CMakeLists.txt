@@ -39,8 +39,12 @@ target_sources(sandbox_renderer
          src/vulkan_wrapper/core/render_graph.cpp
          include/vulkan_wrapper/core/renderable_registry.h
          src/vulkan_wrapper/core/renderable_registry.cpp
- )
+)
 
+ target_precompile_headers(sandbox_renderer
+    PRIVATE
+    include/common/renderer_pch.h
+)
 
 target_include_directories(sandbox_renderer
     PUBLIC

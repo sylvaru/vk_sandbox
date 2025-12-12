@@ -1,6 +1,5 @@
+#include "common/renderer_pch.h"
 #include "vulkan_wrapper/core/render_graph.h"
-#include <queue>
-#include <spdlog/spdlog.h>
 
 
 RGHandle RenderGraph::newHandle() { return static_cast<RGHandle>(m_resources.size()); }

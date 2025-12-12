@@ -1,6 +1,6 @@
+#include "common/renderer_pch.h"
 #include "vulkan_wrapper/core/window.h"
-#include <stdexcept>
-#include <iostream>
+
 
 
 SandboxWindow::SandboxWindow(int w, int h, std::string name) : m_width{ w }, m_height{ h }, m_window_name{ name }

@@ -1,8 +1,6 @@
+#include "common/renderer_pch.h"
 #include "vulkan_wrapper/vulkan_image.h"
 
-
-
-#include <stdexcept>
 
 void VkSandboxImage::create(
     VkSandboxDevice* device,

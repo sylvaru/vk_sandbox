@@ -1,3 +1,5 @@
+// sandbox_engine/common/glfw_input.cpp
+#include "common/engine_pch.h"
 #include "common/glfw_input.h"
 
 GLFWWindowInput::GLFWWindowInput(GLFWwindow* window)
@@ -18,24 +20,27 @@ void GLFWWindowInput::lockCursor(bool lock) {
 }
 
 // static callback called by GLFW
-void GLFWWindowInput::cursorPosCallbackStatic(GLFWwindow* window, double x, double y) {
-    auto* userData = static_cast<WindowUserData*>(glfwGetWindowUserPointer(window));
+void GLFWWindowInput::cursorPosCallbackStatic(
+    GLFWwindow* window, double xpos, double ypos)
+{
+    auto* userData =
+        static_cast<WindowUserData*>(glfwGetWindowUserPointer(window));
     if (!userData || !userData->input) return;
 
     auto* self = static_cast<GLFWWindowInput*>(userData->input);
 
     if (self->m_firstMouse) {
-        self->m_lastX = x;
-        self->m_lastY = y;
+        self->m_lastX = xpos;
+        self->m_lastY = ypos;
         self->m_firstMouse = false;
         return;
     }
 
-    double dx = x - self->m_lastX;
-    double dy = y - self->m_lastY;
+    double dx = xpos - self->m_lastX;
+    double dy = ypos - self->m_lastY;
 
-    self->m_lastX = x;
-    self->m_lastY = y;
+    self->m_lastX = xpos;
+    self->m_lastY = ypos;
 
     self->m_accumDX += dx;
     self->m_accumDY += dy;
@@ -45,9 +50,12 @@ void GLFWWindowInput::cursorPosCallbackStatic(GLFWwindow* window, double x, doub
 void GLFWWindowInput::consumeMouseDelta(double& dx, double& dy) {
     dx = m_accumDX;
     dy = m_accumDY;
-    m_accumDX = 0.0f;
-    m_accumDY = 0.0f;
+
+    m_accumDX = 0.0;
+    m_accumDY = 0.0;
 }
+
+
 void GLFWWindowInput::getFramebufferSize(int& width, int& height) const {
     glfwGetFramebufferSize(m_pwindow, &width, &height);
 }
