@@ -52,8 +52,6 @@ void SandboxCamera::rotate(float yawOffsetDeg, float pitchOffsetDeg) {
     updateView();
 }
 
-
-
 void SandboxCamera::setRotation(float pitchDeg, float yawDeg)
 {
     glm::quat qYaw = glm::angleAxis(glm::radians(yawDeg), glm::vec3(0, 1, 0));

@@ -3,8 +3,8 @@ add_library(sandbox_renderer STATIC)
 
 target_sources(sandbox_renderer
     PRIVATE
-         include/vulkan_wrapper/core/window.h
-         src/vulkan_wrapper/core/window.cpp
+         
+         
          include/vulkan_wrapper/core/vulkan_renderer.h
          src/vulkan_wrapper/core/vulkan_renderer.cpp
          include/vk_tools/vk_tools.h

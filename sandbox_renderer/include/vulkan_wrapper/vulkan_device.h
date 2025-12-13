@@ -4,8 +4,8 @@
 #include <vector>
 
 #include "vk_tools/vk_tools.h"
-#include "core/window.h"
 #include "vulkan_instance.h"
+#include "interfaces/window_i.h"
 
 struct SwapChainSupportDetails
 {
@@ -27,7 +27,7 @@ class VkSandboxDevice
 {
 public:
 
-    VkSandboxDevice(VkSandboxInstance& instance, SandboxWindow& window);
+    VkSandboxDevice(VkSandboxInstance& instance, IWindow& window);
     ~VkSandboxDevice();
 
     // Not copyable or movable
@@ -47,7 +47,7 @@ public:
     VkQueue presentQueue() const { return m_presentQueue; }
     uint32_t graphicsQueueFamilyIndex() const { return m_queueFamilyIndices.graphicsFamily; }
     VkPhysicalDevice physicalDevice() const { return m_physicalDevice; }
-
+    VkExtent2D getSwapchainExtent() const;
 
     SwapChainSupportDetails getSwapChainSupport() { return querySwapChainSupport(m_physicalDevice); }
     uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
@@ -139,7 +139,7 @@ public:
 
 private:
 
-    SandboxWindow& m_window;
+    IWindow& m_window;
     VkSandboxInstance& m_instance;
     
     VkCommandPool m_commandPool;

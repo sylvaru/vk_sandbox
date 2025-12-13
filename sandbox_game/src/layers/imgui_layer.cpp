@@ -8,7 +8,7 @@
 void ImGuiLayer::onAttach(Core::SandboxEngine* engine) {
     m_engine = engine;
     m_prenderer = &static_cast<VkSandboxRenderer&>(m_engine->renderer());
-    m_windowInput = m_engine->getInputSharedPtr();
+    m_window = &m_engine->getWindow();
     m_assetManager = &m_engine->getAssetManager();
 
     auto& device = m_engine->getDevice();

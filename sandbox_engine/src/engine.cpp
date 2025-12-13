@@ -7,14 +7,20 @@
 
 namespace Core {
 
+    SandboxEngine::SandboxEngine()
+        : SandboxEngine(EngineSpecification{}) {
+    }
+
 	SandboxEngine::SandboxEngine(const EngineSpecification& engineSpec)
 		: m_engineSpec(engineSpec)
-		, m_window(m_engineSpec.windowSpec.width, m_engineSpec.windowSpec.height, m_engineSpec.name)
+		, m_window(std::make_unique<GLFWwindowAndInput>(
+            m_engineSpec.windowSpec.width,
+            m_engineSpec.windowSpec.height,
+            m_engineSpec.name))
 		, m_vkinstance()
-		, m_device(m_vkinstance, m_window)
+		, m_device(m_vkinstance, *m_window)
 		, m_assetManager(m_device)
-		, m_renderer(m_device, m_window)
-		, m_windowInput(std::make_shared<GLFWWindowInput>(m_window.getGLFWwindow()))
+		, m_renderer(m_device, *m_window)
 		, m_physicsEngine(std::make_unique<PhysicsEngine>())
 	{
 		m_assetManager.preloadGlobalAssets();
@@ -27,10 +33,7 @@ namespace Core {
 
 	void SandboxEngine::initialize() {
 
-		if (auto* userData = static_cast<WindowUserData*>(m_windowInput->getWindowUserPointer())) {
-			userData->input= m_windowInput.get();
-		}
-		m_windowInput->lockCursor(m_cursorLocked);
+        m_window->lockCursor(m_cursorLocked);
 		setupInputCallbacks();
 
         for (auto& layer : m_layers) {
@@ -64,9 +67,9 @@ namespace Core {
         constexpr double TARGET_FRAME_TIME = 1.0 / TARGET_FPS;
         auto lastTime = clock::now();
 
-        while (!m_windowInput->isWindowShouldClose()) {
+        while (!m_window->isWindowShouldClose()) {
 
-            m_windowInput->pollEvents();
+            m_window->pollEvents();
             processInput();
 
             auto now = clock::now();
@@ -155,11 +158,11 @@ namespace Core {
 
 	void SandboxEngine::toggleCursorLock() {
 		m_cursorLocked = !m_cursorLocked;
-		m_windowInput->lockCursor(m_cursorLocked);
+        m_window->lockCursor(m_cursorLocked);
 	}
 
     void SandboxEngine::setupInputCallbacks() {
-        m_windowInput->setKeyCallback([this](SandboxKey key, int scancode, KeyAction action, int mods) {
+        m_window->setKeyCallback([this](SandboxKey key, int scancode, KeyAction action, int mods) {
             if (key == SandboxKey::LEFT_ALT && action == KeyAction::PRESS) {
                 toggleCursorLock();
             }
@@ -168,8 +171,8 @@ namespace Core {
 
 	void SandboxEngine::processInput() {
 
-		if (m_windowInput && m_windowInput->isKeyPressed(SandboxKey::ESCAPE)) {
-			m_windowInput->requestWindowClose();
+		if (m_window && m_window->isKeyPressed(SandboxKey::ESCAPE)) {
+            m_window->requestWindowClose();
 		}
 	}
 

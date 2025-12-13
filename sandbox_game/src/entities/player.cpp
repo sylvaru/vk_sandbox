@@ -3,14 +3,15 @@
 #include "key_codes.h"
 
 
-SandboxPlayer::SandboxPlayer(std::shared_ptr<IWindowInput> input,
+SandboxPlayer::SandboxPlayer(
+    IWindow& window,
     const glm::vec3& startPos,
     const glm::vec3& startRotRad,
     float fov,
     float sensitivity,
     float moveSpeed,
     PhysicsEngine* physics)
-    : m_pInput(std::move(input))
+    : m_window(window)
     , m_initialPosition(startPos)
     , m_initialRotation(startRotRad)
     , m_controller(startPos,
@@ -44,18 +45,17 @@ void SandboxPlayer::onInit() {
 
 
 void SandboxPlayer::onUpdate(float dt) {
-    if (!m_pInput) return;
 
     double dx, dy;
-    m_pInput->consumeMouseDelta(dx, dy);
+    m_window.consumeMouseDelta(dx, dy);
     m_controller.mouseCallback(glm::vec2(dx, dy));
 
-    m_controller.update(dt, m_pInput);
+    m_controller.update(dt, m_window);
 
     auto& cam = m_controller.getCamera();
 
     int w, h;
-    m_pInput->getFramebufferSize(w, h);
+    m_window.getFramebufferSize(w, h);
     float aspect = h == 0 ? 1.0f : static_cast<float>(w) / h;
     cam.updateProjection(aspect, 0.1f, 300.f);
 }

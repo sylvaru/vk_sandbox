@@ -1,5 +1,5 @@
 #pragma once
-#include "interfaces/window_input_i.h"
+#include "interfaces/window_i.h"
 
 #include "interfaces/scene_i.h"
 #include "interfaces/entity_i.h"
@@ -23,7 +23,7 @@
 
 class SandboxScene : public EngineSceneBase {
 public:
-	SandboxScene(std::shared_ptr<IWindowInput> input,
+	SandboxScene(IWindow& window,
 		Core::AssetManager& assetManager);
 
 	void init() override { EngineSceneBase::init(); }
@@ -42,7 +42,7 @@ public:
 	}
 
 private:
-	std::shared_ptr<IWindowInput> m_pInput;
+	IWindow& m_window;
 	Core::AssetManager& m_assetManager;
 
 	std::vector<std::shared_ptr<SandboxPlayer>> m_players;

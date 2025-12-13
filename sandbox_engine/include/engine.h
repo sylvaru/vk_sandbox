@@ -1,13 +1,12 @@
 #pragma once
 #include <memory>
-#include "vulkan_wrapper/core/window.h"
 #include "vulkan_wrapper/core/vulkan_renderer.h"
 #include "vulkan_wrapper/vulkan_device.h"
 #include "vulkan_wrapper/vulkan_instance.h"
 #include "interfaces/layer_i.h"
 #include "interfaces/camera_i.h"
-#include "interfaces/window_input_i.h"
-#include "common/glfw_input.h"
+#include "interfaces/window_i.h"
+#include "common/GLFWwindowAndInput.h"
 #include "asset_manager.h"
 #include "physics/physics_engine.h"
 
@@ -26,8 +25,9 @@ namespace Core {
 
     class SandboxEngine {
     public:
-       
-        explicit SandboxEngine(const EngineSpecification& appSpec = EngineSpecification());
+        SandboxEngine();
+        explicit SandboxEngine(const EngineSpecification& appSpec);
+
         ~SandboxEngine();
 
         void initialize();
@@ -42,12 +42,13 @@ namespace Core {
             m_layers.push_back(std::move(layer));
         }
 
+        IWindow& getWindow() { return *m_window; }
         AssetManager& getAssetManager() { return m_assetManager; }
         VkSandboxDevice& getDevice() { return m_device; }
         VkSandboxInstance& getInstance() { return m_vkinstance; }
         ISandboxRenderer& renderer() { return m_renderer; }
-
-        std::shared_ptr<IWindowInput> getInputSharedPtr() { return m_windowInput; }
+       
+        //std::shared_ptr<IWindowInput> getInputSharedPtr() { return m_windowInput; }
         std::unique_ptr<PhysicsEngine> takePhysicsEngine() { return std::move(m_physicsEngine); }
 
         void toggleCursorLock();
@@ -63,12 +64,12 @@ namespace Core {
 
     private:
         EngineSpecification                      m_engineSpec;
-        SandboxWindow                            m_window;
+        std::unique_ptr<GLFWwindowAndInput>      m_window;
         VkSandboxInstance                        m_vkinstance;
         VkSandboxDevice                          m_device;
         AssetManager                             m_assetManager;
         VkSandboxRenderer                        m_renderer;
-        std::shared_ptr<IWindowInput>            m_windowInput;
+        
         std::unique_ptr<PhysicsEngine>           m_physicsEngine;
 
         std::vector<std::unique_ptr<ILayer>>     m_layers;

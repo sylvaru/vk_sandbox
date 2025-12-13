@@ -5,8 +5,8 @@ cmake_minimum_required(VERSION 3.24)
 project(sandbox_engine)
 
 add_library(sandbox_engine STATIC
-    include/common/glfw_input.h
-    src/common/glfw_input.cpp 
+    "include/common/GLFWwindowAndInput.h"
+    "src/common/GLFWwindowAndInput.cpp" 
     include/engine.h
     src/engine.cpp
     include/asset_manager.h

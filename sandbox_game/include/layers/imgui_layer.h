@@ -1,6 +1,6 @@
 #pragma once
 #include "interfaces/layer_i.h"
-#include "interfaces/window_input_i.h"
+#include "interfaces/window_i.h"
 #include "interfaces/renderer_i.h"
 #include <iostream>
 #include <memory>
@@ -16,7 +16,7 @@ public:
     IScene* getSceneInterface() override;
 private:
     Core::SandboxEngine* m_engine = nullptr;
-    std::shared_ptr<IWindowInput> m_windowInput;
+    IWindow* m_window;
     Core::AssetManager* m_assetManager = nullptr;
     VkSandboxRenderer* m_prenderer = nullptr;
 

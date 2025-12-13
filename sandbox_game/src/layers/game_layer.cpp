@@ -10,10 +10,10 @@ void MyGameLayer::onAttach(Core::SandboxEngine* engine) {
 
 void MyGameLayer::onInit()
 {
-    m_windowInput = m_engine->getInputSharedPtr();
+    m_window = &m_engine->getWindow();
     m_assetManager = &m_engine->getAssetManager();
     spdlog::info("MyGameLayer::onInit");
-    m_scene = std::make_unique<SandboxScene>(m_windowInput, *m_assetManager);
+    m_scene = std::make_unique<SandboxScene>(*m_window, *m_assetManager);
     m_scene->setPhysicsEngine(m_engine->takePhysicsEngine());
     m_scene->loadSceneFile("default_scene"); 
     m_engine->setActiveScene(m_scene.get(), this);

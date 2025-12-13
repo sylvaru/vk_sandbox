@@ -1,6 +1,6 @@
 #pragma once
 #include "interfaces/layer_i.h"
-#include "interfaces/window_input_i.h"
+#include "interfaces/window_i.h"
 #include "interfaces/renderer_i.h"
 #include "entities/player.h"
 #include "scene/scene.h"
@@ -17,7 +17,7 @@ public:
 private:
     Core::SandboxEngine* m_engine = nullptr;
     std::unique_ptr<SandboxScene> m_scene;
-    std::shared_ptr<IWindowInput> m_windowInput;
+    IWindow*     m_window;
     Core::AssetManager* m_assetManager = nullptr;
 
 };

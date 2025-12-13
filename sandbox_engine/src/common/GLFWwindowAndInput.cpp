@@ -1,0 +1,181 @@
+// sandbox_engine/common/glfw_input.cpp
+#include "common/engine_pch.h"
+#include "common/GLFWwindowAndInput.h"
+
+
+GLFWwindowAndInput::GLFWwindowAndInput(
+    uint32_t width,
+    uint32_t height,
+    const std::string& title)
+{
+    initGLFW(width, height, title);
+}
+
+GLFWwindowAndInput::~GLFWwindowAndInput()
+{
+    if (m_window) {
+        glfwDestroyWindow(m_window);
+        m_window = nullptr;
+    }
+    glfwTerminate();
+}
+
+void GLFWwindowAndInput::initGLFW(
+    uint32_t width,
+    uint32_t height,
+    const std::string& title)
+{
+    if (!glfwInit())
+        throw std::runtime_error("Failed to initialize GLFW");
+
+    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+    glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
+
+    m_window = glfwCreateWindow(
+        static_cast<int>(width),
+        static_cast<int>(height),
+        title.c_str(),
+        nullptr,
+        nullptr
+    );
+
+    if (!m_window)
+        throw std::runtime_error("Failed to create GLFW window");
+
+    m_width = width;
+    m_height = height;
+
+    glfwSetWindowUserPointer(m_window, this);
+
+    glfwSetFramebufferSizeCallback(m_window, framebufferResizeCallback);
+    glfwSetCursorPosCallback(m_window, cursorPosCallback);
+    glfwSetKeyCallback(m_window, keyCallback);
+
+    if (glfwRawMouseMotionSupported()) {
+        glfwSetInputMode(m_window, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
+    }
+}
+
+// Window API
+
+void GLFWwindowAndInput::pollEvents() {
+    glfwPollEvents();
+}
+
+bool GLFWwindowAndInput::isWindowShouldClose() const {
+    return glfwWindowShouldClose(m_window);
+}
+
+void GLFWwindowAndInput::requestWindowClose() {
+    glfwSetWindowShouldClose(m_window, GLFW_TRUE);
+}
+
+void GLFWwindowAndInput::getFramebufferSize(int& width, int& height) const {
+    glfwGetFramebufferSize(m_window, &width, &height);
+}
+
+// Input API
+
+void GLFWwindowAndInput::lockCursor(bool lock) {
+    glfwSetInputMode(
+        m_window,
+        GLFW_CURSOR,
+        lock ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL
+    );
+    m_firstMouse = true;
+}
+
+bool GLFWwindowAndInput::isKeyPressed(SandboxKey key) const {
+    int glfwKey = mapKeyToGLFW(key);
+    return glfwKey != -1 && glfwGetKey(m_window, glfwKey) == GLFW_PRESS;
+}
+
+bool GLFWwindowAndInput::isMouseButtonPressed(int button) const {
+    return glfwGetMouseButton(m_window, button) == GLFW_PRESS;
+}
+
+void GLFWwindowAndInput::consumeMouseDelta(double& dx, double& dy) {
+    dx = m_accumDX;
+    dy = m_accumDY;
+    m_accumDX = 0.0;
+    m_accumDY = 0.0;
+}
+
+void GLFWwindowAndInput::setKeyCallback(SandboxKeyCallback callback) {
+    m_keyCallback = std::move(callback);
+}
+
+// Callbacks
+
+void GLFWwindowAndInput::framebufferResizeCallback(GLFWwindow* window, int w, int h) {
+    auto* self = static_cast<GLFWwindowAndInput*>(glfwGetWindowUserPointer(window));
+    if (!self) return;
+
+    self->m_framebufferResized = true;
+    self->m_width = static_cast<uint32_t>(w);
+    self->m_height = static_cast<uint32_t>(h);
+}
+
+void GLFWwindowAndInput::cursorPosCallback(GLFWwindow* window, double x, double y) {
+    auto* self = static_cast<GLFWwindowAndInput*>(glfwGetWindowUserPointer(window));
+    if (!self) return;
+
+    if (self->m_firstMouse) {
+        self->m_lastX = x;
+        self->m_lastY = y;
+        self->m_firstMouse = false;
+        return;
+    }
+
+    self->m_accumDX += (x - self->m_lastX);
+    self->m_accumDY += (y - self->m_lastY);
+
+    self->m_lastX = x;
+    self->m_lastY = y;
+}
+
+void GLFWwindowAndInput::keyCallback(
+    GLFWwindow* window,
+    int key,
+    int scancode,
+    int action,
+    int mods)
+{
+    auto* self = static_cast<GLFWwindowAndInput*>(glfwGetWindowUserPointer(window));
+    if (!self || !self->m_keyCallback) return;
+
+    SandboxKey sandboxKey = static_cast<SandboxKey>(key);
+    KeyAction sandboxAction =
+        action == GLFW_PRESS ? KeyAction::PRESS :
+        action == GLFW_RELEASE ? KeyAction::RELEASE :
+        KeyAction::REPEAT;
+
+    self->m_keyCallback(sandboxKey, scancode, sandboxAction, mods);
+}
+
+void GLFWwindowAndInput::setUserPointer(void* ptr) {
+    glfwSetWindowUserPointer(m_window, ptr);
+}
+
+void* GLFWwindowAndInput::getWindowUserPointer() const {
+    return glfwGetWindowUserPointer(m_window);
+}
+
+
+// Key mapping
+
+int GLFWwindowAndInput::mapKeyToGLFW(SandboxKey key) const {
+    switch (key) {
+    case SandboxKey::W: return GLFW_KEY_W;
+    case SandboxKey::A: return GLFW_KEY_A;
+    case SandboxKey::S: return GLFW_KEY_S;
+    case SandboxKey::D: return GLFW_KEY_D;
+    case SandboxKey::Q: return GLFW_KEY_Q;
+    case SandboxKey::E: return GLFW_KEY_E;
+    case SandboxKey::ESCAPE: return GLFW_KEY_ESCAPE;
+    case SandboxKey::SPACE: return GLFW_KEY_SPACE;
+    case SandboxKey::LEFT_ALT: return GLFW_KEY_LEFT_ALT;
+    case SandboxKey::LEFT_SHIFT: return GLFW_KEY_LEFT_SHIFT;
+    default: return -1;
+    }
+}

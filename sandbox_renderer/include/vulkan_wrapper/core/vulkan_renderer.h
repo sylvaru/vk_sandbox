@@ -6,8 +6,6 @@
 #include "interfaces/scene_i.h"
 #include "interfaces/asset_provider_i.h"
 
-#include "window.h"
-
 #include "vulkan_wrapper/vulkan_device.h"
 #include "vulkan_wrapper/vulkan_swapchain.h"
 #include "vulkan_wrapper/vulkan_descriptor.h"
@@ -34,7 +32,7 @@ public:
 		VkSandboxSwapchain::MAX_FRAMES_IN_FLIGHT;
 
 
-	VkSandboxRenderer(VkSandboxDevice& device, SandboxWindow& window);
+	VkSandboxRenderer(VkSandboxDevice& device, IWindow& window);
 	VkSandboxRenderer(const VkSandboxRenderer&) = delete;
 	VkSandboxRenderer& operator=(const VkSandboxRenderer&) = delete;
 	~VkSandboxRenderer() override;
@@ -57,8 +55,8 @@ public:
 	void initImGui(VkInstance instance, VkPhysicalDevice physicalDevice, VkDevice device, VkQueue graphicsQueue, uint32_t queueFamily);
 	void shutdownImGui();
 
-	const void beginImGuiFrame();
-	const void renderImGui(FrameContext& frame);
+	void beginImGuiFrame()const;
+	void renderImGui(FrameContext& frame)const;
 	
 	// Helpers
 	VkRenderPass getSwapChainRenderPass() const { return m_swapchain->getRenderPass(); }
@@ -96,7 +94,7 @@ private:
 	std::unique_ptr<VkSandboxDescriptorSetLayout>		m_bindlessLayout;
 
 	VkSandboxDevice&											m_device;
-	SandboxWindow&											    m_window;
+	IWindow&													m_window;
 	std::vector<std::unique_ptr<IRenderSystem>>				   m_systems;
 
 	std::unique_ptr<VkSandboxSwapchain>					     m_swapchain;

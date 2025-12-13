@@ -1,5 +1,5 @@
 #pragma once
-#include "interfaces/window_input_i.h"
+#include "interfaces/window_i.h"
 #include <glm/glm.hpp>
 #include <memory>
 #include <functional>
@@ -17,7 +17,7 @@ public:
         float sensitivity,
         PhysicsEngine* physics);
 
-    void update(float dt, std::shared_ptr<IWindowInput> input);
+    void update(float dt, IWindow& window);
     void mouseCallback(glm::vec2 delta);
     void setMoveSpeed(float s) { m_moveSpeed = s; }
     void setMouseSensitivity(float s) { m_mouseSensitivity = s; }

@@ -1,6 +1,6 @@
 #pragma once
 #include "interfaces/game_object_i.h"
-#include "interfaces/window_input_i.h"
+#include "interfaces/window_i.h"
 #include "input/player_input.h"
 #include "interfaces/camera_i.h"
 #include "transform_component.h"
@@ -14,7 +14,8 @@
 class SandboxPlayer : public IGameObject
 {
 public:
-    SandboxPlayer(std::shared_ptr<IWindowInput> input,
+    SandboxPlayer(
+        IWindow& window,
         const glm::vec3& startPos,
         const glm::vec3& startRotRad,
         float fov,
@@ -32,7 +33,7 @@ public:
 
 
 private:
-    std::shared_ptr<IWindowInput>       m_pInput;
+    IWindow& m_window;
     TransformComponent m_transform;
     SandboxMNKController m_controller;
     PhysicsEngine* m_physics;

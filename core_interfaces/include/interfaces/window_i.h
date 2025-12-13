@@ -5,9 +5,9 @@
 
 using SandboxKeyCallback = std::function<void(SandboxKey key, int scancode, KeyAction action, int mods)>;
 
-struct IWindowInput {
-	virtual ~IWindowInput() = default;
-
+struct IWindow {
+	virtual ~IWindow() = default;
+    virtual void* getNativeHandle() const = 0;
     virtual void lockCursor(bool lock) = 0;
     virtual void getFramebufferSize(int& width, int& height) const = 0;
     virtual bool isKeyPressed(SandboxKey key) const = 0;
@@ -19,6 +19,6 @@ struct IWindowInput {
     virtual void pollEvents() = 0;
     virtual void*getWindowUserPointer() const = 0;
     virtual void consumeMouseDelta(double& dx, double& dy) = 0;
-   
-
+    virtual bool wasWindowResized() const  = 0;
+    virtual void resetWindowResizedFlag() = 0;
 };

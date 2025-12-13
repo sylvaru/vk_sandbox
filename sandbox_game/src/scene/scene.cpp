@@ -6,9 +6,9 @@
 
 using json = nlohmann::json;
 
-SandboxScene::SandboxScene(std::shared_ptr<IWindowInput> input, Core::AssetManager& assetManager)
+SandboxScene::SandboxScene(IWindow& window, Core::AssetManager& assetManager)
 	: EngineSceneBase(&assetManager)
-    , m_pInput(std::move(input))
+    , m_window(window)
     , m_assetManager(assetManager) 
 {
 }
@@ -16,7 +16,7 @@ SandboxScene::SandboxScene(std::shared_ptr<IWindowInput> input, Core::AssetManag
 void SandboxScene::initSceneData() {
 
     auto player = std::make_shared<SandboxPlayer>(
-        m_pInput,
+        m_window,
         m_initialPlayerPosition,
         m_initialPlayerRotation,
         m_initialPlayerFov,

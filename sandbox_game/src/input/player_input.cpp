@@ -19,13 +19,12 @@ SandboxMNKController::SandboxMNKController(
 {
 }
 
-
 void SandboxMNKController::mouseCallback(glm::vec2 delta) {
     m_rawDelta += delta;
 }
 
-void SandboxMNKController::update(float dt, std::shared_ptr<IWindowInput> input) {
-    if (!input || dt <= 0.0f) return;
+void SandboxMNKController::update(float dt, IWindow& window) {
+    if (dt <= 0.0f) return;
 
     // --- Update rotation from mouse ---
     float deltaYaw = -m_rawDelta.x * m_mouseSensitivity;
@@ -48,16 +47,16 @@ void SandboxMNKController::update(float dt, std::shared_ptr<IWindowInput> input)
     glm::vec3 up = glm::vec3(0.f, 1.f, 0.f); // world up
 
     glm::vec3 dir(0.f);
-    if (input->isKeyPressed(SandboxKey::W)) dir += front;
-    if (input->isKeyPressed(SandboxKey::S)) dir -= front;
-    if (input->isKeyPressed(SandboxKey::A)) dir -= right;
-    if (input->isKeyPressed(SandboxKey::D)) dir += right;
-    if (input->isKeyPressed(SandboxKey::Q)) dir -= up;
-    if (input->isKeyPressed(SandboxKey::E)) dir += up;
+    if (window.isKeyPressed(SandboxKey::W)) dir += front;
+    if (window.isKeyPressed(SandboxKey::S)) dir -= front;
+    if (window.isKeyPressed(SandboxKey::A)) dir -= right;
+    if (window.isKeyPressed(SandboxKey::D)) dir += right;
+    if (window.isKeyPressed(SandboxKey::Q)) dir -= up;
+    if (window.isKeyPressed(SandboxKey::E)) dir += up;
 
     if (glm::length2(dir) > 1e-6f) {
         dir = glm::normalize(dir);
-        float speed = m_moveSpeed * (input->isKeyPressed(SandboxKey::LEFT_SHIFT) ? 4.f : 1.f);
+        float speed = m_moveSpeed * (window.isKeyPressed(SandboxKey::LEFT_SHIFT) ? 4.f : 1.f);
         glm::vec3 displacement = dir * speed * dt;
 
         if (m_controller) {

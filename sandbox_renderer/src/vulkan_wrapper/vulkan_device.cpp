@@ -2,7 +2,7 @@
 #include "vulkan_wrapper/vulkan_device.h"
 
 
-VkSandboxDevice::VkSandboxDevice(VkSandboxInstance& instance, SandboxWindow& window)
+VkSandboxDevice::VkSandboxDevice(VkSandboxInstance& instance, IWindow& window)
     : m_window(window),
       m_instance(instance)
 {
@@ -17,6 +17,17 @@ VkSandboxDevice::~VkSandboxDevice() {
     vkDestroyDevice(m_logicalDevice, nullptr);
 }
 
+void VkSandboxDevice::createSurface() {
+    GLFWwindow* glfwWindow =
+        static_cast<GLFWwindow*>(m_window.getNativeHandle());
+
+    glfwCreateWindowSurface(
+        m_instance.instance(),
+        glfwWindow,
+        nullptr,
+        &m_surface
+    );
+}
 
 void VkSandboxDevice::pickPhysicalDevice() {
     uint32_t deviceCount = 0;
@@ -45,9 +56,7 @@ void VkSandboxDevice::pickPhysicalDevice() {
 
     vkGetPhysicalDeviceMemoryProperties(m_physicalDevice, &m_deviceMemoryProperties);
 }
-void VkSandboxDevice::createSurface() {
-    m_window.createSurface(m_instance.instance(), &m_surface);
-}
+
 void VkSandboxDevice::createLogicalDevice() {
     m_queueFamilyIndices = findQueueFamilies(m_physicalDevice);
 
@@ -604,6 +613,17 @@ VkExtent2D VkSandboxDevice::chooseSwapExtent(
         caps.minImageExtent.height,
         std::min(caps.maxImageExtent.height, actual.height));
     return actual;
+}
+
+VkExtent2D VkSandboxDevice::getSwapchainExtent() const {
+    int width = 0;
+    int height = 0;
+    m_window.getFramebufferSize(width, height);
+
+    return {
+        static_cast<uint32_t>(width),
+        static_cast<uint32_t>(height) 
+    };
 }
 uint32_t VkSandboxDevice::getMemoryType(uint32_t typeBits, VkMemoryPropertyFlags properties, VkBool32* memTypeFound) const
 {

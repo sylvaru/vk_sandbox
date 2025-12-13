@@ -11,7 +11,7 @@ constexpr uint32_t MAX_BINDLESS_TEXTURES = 8192;
 
 VkSandboxRenderer::VkSandboxRenderer(
     VkSandboxDevice& device,
-    SandboxWindow& window)
+    IWindow& window)
     : m_device(device),
     m_window(window)
 {
@@ -400,9 +400,8 @@ void VkSandboxRenderer::createCommandBuffers()
 void VkSandboxRenderer::createSwapChain() 
 {
 
-    auto extent = m_window.getExtent();
+    auto extent = m_device.getSwapchainExtent();
     glfwWaitEvents();
-    extent = m_window.getExtent();
 
     vkDeviceWaitIdle(m_device.device());
 
@@ -536,7 +535,11 @@ void VkSandboxRenderer::initImGui(
 
     m_imguiDescriptorPool = create_imgui_descriptor_pool(device);
 
-    ImGui_ImplGlfw_InitForVulkan(m_window.getGLFWwindow(), true);
+    GLFWwindow* glfwWindow =
+        static_cast<GLFWwindow*>(m_window.getNativeHandle());
+
+    ImGui_ImplGlfw_InitForVulkan(glfwWindow, true);
+
 
     ImGui_ImplVulkan_InitInfo init_info{};
     init_info.Instance = instance;
@@ -561,7 +564,7 @@ void VkSandboxRenderer::initImGui(
 }
 
 
-const void VkSandboxRenderer::beginImGuiFrame() 
+void VkSandboxRenderer::beginImGuiFrame() const
 {
     if (!m_imguiInitialized) return;
 
@@ -572,7 +575,7 @@ const void VkSandboxRenderer::beginImGuiFrame()
 
 }
 
-const void VkSandboxRenderer::renderImGui(FrameContext& frame)
+void VkSandboxRenderer::renderImGui(FrameContext& frame) const
 {
     if (!m_imguiInitialized) return;
     ImGui::Render();
