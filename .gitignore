@@ -1,2 +1,6 @@
+# Ignore local visual studio settings
 .vs
+# Ignore build directory
 out
+# Ignore compiled SPIR-V shaders
+res/shaders/spirV/
