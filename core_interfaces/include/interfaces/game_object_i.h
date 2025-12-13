@@ -1,6 +1,6 @@
 // IGameObject.h
 #pragma once
-#include "transform_component.h"
+#include "global_common/transform_component.h"
 #include "renderer_i.h"
 #include "interfaces/model_i.h"
 #include <memory>

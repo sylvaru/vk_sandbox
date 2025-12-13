@@ -2,7 +2,7 @@
 #pragma once
 #include <vulkan/vulkan.h>
 #include "renderer_i.h"
-#include "frame_info.h"
+#include "global_common/frame_info.h"
 
 class VkSandboxDevice;
 class VkSandboxDescriptorPool;

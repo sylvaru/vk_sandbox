@@ -1,6 +1,6 @@
 #include "common/game_pch.h"
 #include "entities/player.h"
-#include "key_codes.h"
+#include "global_common/key_codes.h"
 
 
 SandboxPlayer::SandboxPlayer(

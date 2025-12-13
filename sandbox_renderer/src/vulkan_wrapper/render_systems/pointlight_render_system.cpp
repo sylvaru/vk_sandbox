@@ -1,6 +1,6 @@
 #include "common/renderer_pch.h"
 #include "vulkan_wrapper/render_systems/pointlight_render_system.h"
-#include "frame_info.h"
+#include "global_common/frame_info.h"
 #include "interfaces/game_object_i.h"
 
 

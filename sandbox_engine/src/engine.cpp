@@ -1,8 +1,8 @@
 // sandbox_engine/src/engine.cpp
 #include "common/engine_pch.h"
 #include "engine.h"
-#include "key_codes.h"
-#include "frame_info.h"
+#include "global_common/key_codes.h"
+#include "global_common/frame_info.h"
 
 
 namespace Core {

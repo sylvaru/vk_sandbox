@@ -9,7 +9,7 @@
 #include "interfaces/game_object_i.h"
 
 
-//class RenderableRegistry;
+class RenderableRegistry;
 
 #define MAX_LIGHTS 10
 struct IGameObject;
@@ -39,4 +39,3 @@ struct FrameInfo {
     VkDescriptorSet globalDescriptorSet = VK_NULL_HANDLE;
     const RenderableRegistry* renderRegistry = nullptr;
 };
-

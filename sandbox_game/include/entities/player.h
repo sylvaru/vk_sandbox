@@ -3,7 +3,7 @@
 #include "interfaces/window_i.h"
 #include "input/player_input.h"
 #include "interfaces/camera_i.h"
-#include "transform_component.h"
+#include "global_common/transform_component.h"
 #include "interfaces/renderer_i.h"
 #include "physics/physics_engine.h"
 

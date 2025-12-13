@@ -4,7 +4,7 @@
 #include <vulkan/vulkan.h>
 #include <vector>
 #include <glm/glm.hpp>
-#include "frame_info.h"
+#include "global_common/frame_info.h"
 
 class ISandboxRenderer {
 public:

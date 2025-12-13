@@ -105,6 +105,7 @@ bool GLFWwindowAndInput::isWindowShouldClose() const {
 
 void GLFWwindowAndInput::requestWindowClose() {
     glfwSetWindowShouldClose(m_window, GLFW_TRUE);
+    std::exit(0);
 }
 
 void GLFWwindowAndInput::getFramebufferSize(int& width, int& height) const {

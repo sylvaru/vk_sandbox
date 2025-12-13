@@ -1,5 +1,5 @@
 #pragma once
-#include "key_codes.h"
+#include "global_common/key_codes.h"
 #include <functional>
 
 enum class WindowMode {
