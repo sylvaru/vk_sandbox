@@ -3,4 +3,4 @@
 # Ignore build directory
 out
 # Ignore compiled SPIR-V shaders
-res/shaders/spirV/
+res/shaders/spirV/*.spv
