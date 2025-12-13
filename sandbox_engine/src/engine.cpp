@@ -14,8 +14,7 @@ namespace Core {
 	SandboxEngine::SandboxEngine(const EngineSpecification& engineSpec)
 		: m_engineSpec(engineSpec)
 		, m_window(std::make_unique<GLFWwindowAndInput>(
-            m_engineSpec.windowSpec.width,
-            m_engineSpec.windowSpec.height,
+            m_engineSpec.windowSpec,
             m_engineSpec.name))
 		, m_vkinstance()
 		, m_device(m_vkinstance, *m_window)
@@ -72,11 +71,20 @@ namespace Core {
             m_window->pollEvents();
             processInput();
 
+            // Don't render when minimized
+            int fbWidth = 0, fbHeight = 0;
+            m_window->getFramebufferSize(fbWidth, fbHeight);
+
+            if (fbWidth == 0 || fbHeight == 0) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(16));
+                continue;
+            }
+            // Compute delta time
             auto now = clock::now();
             double deltaTime = duration_t(now - lastTime).count();
             lastTime = now;
 
-            // Update all layers (game logic). Layers mutate scene/state.
+            // Update all layers
             for (auto& layer : m_layers) {
                 layer->onUpdate(static_cast<float>(deltaTime));
             }
@@ -129,7 +137,7 @@ namespace Core {
                 m_renderer.endFrame(frame);
             }
             else {
-                // No scene: still allow layers to render (UI-only apps)
+                // No scene: still allow layers to render Ui only apps
                 ISandboxRenderer::FrameContext frame = m_renderer.beginFrame();
                 if (!frame.isValid()) break;
                 m_renderer.beginSwapChainRenderPass(frame);
@@ -152,15 +160,9 @@ namespace Core {
 
         // Cleanup layers
         for (auto& layer : m_layers) {
-            //layer->onDetach();
+            layer->onDetach();
         }
     }
-
-	void SandboxEngine::toggleCursorLock() {
-		m_cursorLocked = !m_cursorLocked;
-        m_window->lockCursor(m_cursorLocked);
-	}
-
     void SandboxEngine::setupInputCallbacks() {
         m_window->setKeyCallback([this](SandboxKey key, int scancode, KeyAction action, int mods) {
             if (key == SandboxKey::LEFT_ALT && action == KeyAction::PRESS) {
@@ -169,12 +171,18 @@ namespace Core {
             });
     }
 
-	void SandboxEngine::processInput() {
+    void SandboxEngine::processInput() {
 
-		if (m_window && m_window->isKeyPressed(SandboxKey::ESCAPE)) {
+        if (m_window && m_window->isKeyPressed(SandboxKey::ESCAPE)) {
             m_window->requestWindowClose();
-		}
+        }
+    }
+
+	void SandboxEngine::toggleCursorLock() {
+		m_cursorLocked = !m_cursorLocked;
+        m_window->lockCursor(m_cursorLocked);
 	}
+
 
     void SandboxEngine::setActiveScene(IScene* scene, ILayer* owner) {
         if (scene) {

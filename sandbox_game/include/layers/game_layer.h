@@ -12,6 +12,7 @@ public:
     void onAttach(Core::SandboxEngine* engine) override;
     void onInit() override;
     void onUpdate(float dt) override;
+    void onDetach() override {}
 
     IScene* getSceneInterface() override;
 private:

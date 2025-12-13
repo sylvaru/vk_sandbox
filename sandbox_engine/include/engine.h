@@ -15,12 +15,7 @@ namespace Core {
 
     struct EngineSpecification {
         std::string name = "";
-
-        struct WindowSpecification {
-            uint32_t width = 1920;
-            uint32_t height = 1080;
-            bool isFullscreenBorderless = false;
-        } windowSpec;
+        WindowSpecification windowSpec;
     };
 
     class SandboxEngine {

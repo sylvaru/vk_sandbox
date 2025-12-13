@@ -397,34 +397,55 @@ void VkSandboxRenderer::createCommandBuffers()
 }
 
 
-void VkSandboxRenderer::createSwapChain() 
+void VkSandboxRenderer::createSwapChain()
 {
+    // Wait for valid framebuffer size
+    VkExtent2D extent{};
+    do {
+        m_window.waitEvents(); // block until an event occurs
 
-    auto extent = m_device.getSwapchainExtent();
-    glfwWaitEvents();
+        int width = 0, height = 0;
+        m_window.getFramebufferSize(width, height);
+
+        extent.width = static_cast<uint32_t>(width);
+        extent.height = static_cast<uint32_t>(height);
+
+    } while (extent.width == 0 || extent.height == 0);
 
     vkDeviceWaitIdle(m_device.device());
 
-    if (m_swapchain == nullptr) {
-
+    if (!m_swapchain) {
         m_swapchain = std::make_unique<VkSandboxSwapchain>(
             m_device,
             extent
         );
     }
     else {
-        std::shared_ptr oldSwapchain = std::move(m_swapchain);
-        m_swapchain = std::make_unique<VkSandboxSwapchain>(m_device, extent, oldSwapchain);
-        if (!oldSwapchain->compareSwapFormats(*m_swapchain.get())) {
-            throw std::runtime_error("Swap chain image(or depth) format has changed");
+        std::shared_ptr<VkSandboxSwapchain> oldSwapchain = std::move(m_swapchain);
+
+        m_swapchain = std::make_unique<VkSandboxSwapchain>(
+            m_device,
+            extent,
+            oldSwapchain
+        );
+
+        if (!oldSwapchain->compareSwapFormats(*m_swapchain)) {
+            throw std::runtime_error(
+                "Swapchain image or depth format changed");
         }
     }
 
-    m_swapchainImageLayouts.assign(m_swapchain->imageCount(), VK_IMAGE_LAYOUT_UNDEFINED);
-    m_depthImageLayouts.assign(m_swapchain->imageCount(), VK_IMAGE_LAYOUT_UNDEFINED);
+    m_swapchainImageLayouts.assign(
+        m_swapchain->imageCount(),
+        VK_IMAGE_LAYOUT_UNDEFINED);
+
+    m_depthImageLayouts.assign(
+        m_swapchain->imageCount(),
+        VK_IMAGE_LAYOUT_UNDEFINED);
 
     createCommandBuffers();
 }
+
 void VkSandboxRenderer::freeCommandBuffers() 
 {
     if (m_commandBuffers.empty()) { return; }

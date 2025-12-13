@@ -1,7 +1,7 @@
 {
     "player": {
         "position": [ -1.0, 1.7, 0.0 ],
-        "rotation": [ 2.3, -90.0, 0.0 ],
+        "rotation": [ -15.3, -90.0, 0.0 ],
 
         "fov": 75.0,
         "sensitivity": 0.07,

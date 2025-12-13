@@ -4,11 +4,10 @@
 
 
 GLFWwindowAndInput::GLFWwindowAndInput(
-    uint32_t width,
-    uint32_t height,
+    const WindowSpecification& spec,
     const std::string& title)
 {
-    initGLFW(width, height, title);
+    initGLFW(spec, title);
 }
 
 GLFWwindowAndInput::~GLFWwindowAndInput()
@@ -21,8 +20,7 @@ GLFWwindowAndInput::~GLFWwindowAndInput()
 }
 
 void GLFWwindowAndInput::initGLFW(
-    uint32_t width,
-    uint32_t height,
+    const WindowSpecification& spec,
     const std::string& title)
 {
     if (!glfwInit())
@@ -31,11 +29,47 @@ void GLFWwindowAndInput::initGLFW(
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
 
+    GLFWmonitor* monitor = nullptr;
+    int width = static_cast<int>(spec.width);
+    int height = static_cast<int>(spec.height);
+
+    switch (spec.mode) {
+    case WindowMode::Windowed:
+        glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
+        monitor = nullptr;
+        break;
+
+    case WindowMode::BorderlessFullscreen: {
+        glfwWindowHint(GLFW_DECORATED, GLFW_FALSE);
+        glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+
+        monitor = glfwGetPrimaryMonitor();
+        const GLFWvidmode* mode = glfwGetVideoMode(monitor);
+        width = mode->width;
+        height = mode->height;
+        break;
+    }
+    case WindowMode::ExclusiveFullscreen: {
+        glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+
+        monitor = glfwGetPrimaryMonitor();
+        const GLFWvidmode* mode = glfwGetVideoMode(monitor);
+
+        width = mode->width;
+        height = mode->height;
+
+        // Optional but recommended for true exclusive
+        glfwWindowHint(GLFW_REFRESH_RATE, mode->refreshRate);
+        break;
+    }
+    }
+
+
     m_window = glfwCreateWindow(
-        static_cast<int>(width),
-        static_cast<int>(height),
+        width,
+        height,
         title.c_str(),
-        nullptr,
+        monitor,
         nullptr
     );
 
@@ -61,6 +95,9 @@ void GLFWwindowAndInput::initGLFW(
 void GLFWwindowAndInput::pollEvents() {
     glfwPollEvents();
 }
+void GLFWwindowAndInput::waitEvents() {
+    glfwWaitEvents();
+}
 
 bool GLFWwindowAndInput::isWindowShouldClose() const {
     return glfwWindowShouldClose(m_window);
@@ -77,6 +114,7 @@ void GLFWwindowAndInput::getFramebufferSize(int& width, int& height) const {
 // Input API
 
 void GLFWwindowAndInput::lockCursor(bool lock) {
+    m_cursorLocked = lock;
     glfwSetInputMode(
         m_window,
         GLFW_CURSOR,
@@ -118,7 +156,7 @@ void GLFWwindowAndInput::framebufferResizeCallback(GLFWwindow* window, int w, in
 
 void GLFWwindowAndInput::cursorPosCallback(GLFWwindow* window, double x, double y) {
     auto* self = static_cast<GLFWwindowAndInput*>(glfwGetWindowUserPointer(window));
-    if (!self) return;
+    if (!self || !self->m_cursorLocked) return;
 
     if (self->m_firstMouse) {
         self->m_lastX = x;

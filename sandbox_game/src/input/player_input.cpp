@@ -26,6 +26,11 @@ void SandboxMNKController::mouseCallback(glm::vec2 delta) {
 void SandboxMNKController::update(float dt, IWindow& window) {
     if (dt <= 0.0f) return;
 
+    if (!window.isCursorLocked()) {
+        m_rawDelta = glm::vec2(0.f);
+        return;
+    }
+
     // --- Update rotation from mouse ---
     float deltaYaw = -m_rawDelta.x * m_mouseSensitivity;
     float deltaPitch = -m_rawDelta.y * m_mouseSensitivity;

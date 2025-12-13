@@ -12,6 +12,7 @@ public:
     void onInit() override;
     void onUpdate(float dt) override;
     void onRender(ISandboxRenderer::FrameContext& frame) override;
+    void onDetach() override {}
 
     IScene* getSceneInterface() override;
 private:
