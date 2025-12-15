@@ -5,6 +5,7 @@
 
 
 void ImGuiLayer::onAttach(Core::SandboxEngine* engine) {
+    m_isAttached = true;
     m_engine = engine;
     m_prenderer = &static_cast<VkSandboxRenderer&>(m_engine->renderer());
     m_window = &m_engine->getWindow();

@@ -121,11 +121,13 @@ namespace Core {
                 auto& uboBuffer = m_renderer.getUboBuffers()[idx];
                 uboBuffer->writeToBuffer(&ubo);
                 uboBuffer->flush();
-
+             
                 for (auto& layer : m_layers) {
-                    layer->onRender(frame);
+                    if (layer->isAttached() == true) {
+                        layer->onRender(frame);
+                    }
                 }
-
+                
                 // Main render graph sequence
                 m_renderer.renderSystems(info, frame);
 

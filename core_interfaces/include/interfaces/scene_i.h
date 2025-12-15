@@ -5,7 +5,7 @@
 #include <memory>
 #include "interfaces/game_object_i.h"
 #include "interfaces/camera_i.h"
-#include "interfaces/renderer_i.h"   // for FrameContext
+#include "interfaces/renderer_i.h"
 #include <optional>
 #include <string>
 

@@ -22,7 +22,7 @@ void SandboxScene::initSceneData() {
         m_initialPlayerFov,
         m_initialPlayerSensitivity,
         m_initialPlayerMoveSpeed,
-        m_physicsEngine.get()
+        m_physicsEngine
     );
 
 
@@ -157,7 +157,6 @@ void SandboxScene::loadSceneFile(const std::string& fileName)
                 {
                     inst->emissiveColor = color;
                     inst->intensity = intensity;
-                    inst->boundingSphereRadius = lightRadius;
                 }
             }
 
@@ -255,8 +254,6 @@ void SandboxScene::attachRenderable(std::shared_ptr<IGameObject> go,
         0,
         0,
         t,
-        glm::vec3(0.f),
-        1.f,
         type
     );
 }

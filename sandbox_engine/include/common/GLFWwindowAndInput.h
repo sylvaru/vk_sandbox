@@ -41,6 +41,7 @@ private:
     static void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
 
 private:
+    // Window
     GLFWwindow* m_window = nullptr;
 
     uint32_t m_width = 0;
@@ -48,7 +49,7 @@ private:
     bool m_framebufferResized = false;
     bool m_cursorLocked = false;
 
-    // mouse
+    // Input
     double m_lastX = 0.0;
     double m_lastY = 0.0;
     double m_accumDX = 0.0;
@@ -56,6 +57,5 @@ private:
     bool m_firstMouse = true;
 
     SandboxKeyCallback m_keyCallback;
-
 
 };

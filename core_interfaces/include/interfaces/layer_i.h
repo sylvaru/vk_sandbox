@@ -10,6 +10,7 @@ struct ILayer {
 	virtual void onUpdate(float deltaTime) = 0;
 	virtual void onRender(ISandboxRenderer::FrameContext& frame) {};
 	virtual void onDetach() = 0;
+	virtual bool isAttached() = 0;
 	virtual IScene* getSceneInterface() = 0;
 	virtual ~ILayer() = default;
 };

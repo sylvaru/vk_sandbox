@@ -17,7 +17,6 @@ RenderableID RenderableRegistry::createInstance(
     uint32_t meshIndex,
     uint32_t materialIndex,
     const TransformData& transform,
-    const glm::vec3& bsCenter, float bsRadius,
     RenderableType type) 
 {
     std::lock_guard<std::mutex> lk(m_mutex);
@@ -26,8 +25,6 @@ RenderableID RenderableRegistry::createInstance(
     inst.id = id;
     inst.meshIndex = meshIndex;
     inst.materialIndex = materialIndex;
-    inst.boundingSphereCenterModelSpace = bsCenter;
-    inst.boundingSphereRadius = bsRadius;
     inst.type = type;
     inst.transform = transform;
 

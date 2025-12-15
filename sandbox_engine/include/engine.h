@@ -42,9 +42,7 @@ namespace Core {
         VkSandboxDevice& getDevice() { return m_device; }
         VkSandboxInstance& getInstance() { return m_vkinstance; }
         ISandboxRenderer& renderer() { return m_renderer; }
-       
-        //std::shared_ptr<IWindowInput> getInputSharedPtr() { return m_windowInput; }
-        std::unique_ptr<PhysicsEngine> takePhysicsEngine() { return std::move(m_physicsEngine); }
+        PhysicsEngine& getPhysicsEngine() { return *m_physicsEngine; }
 
         void toggleCursorLock();
         void setupInputCallbacks();

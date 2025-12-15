@@ -252,16 +252,18 @@ void VkSandboxRenderer::renderSystems(FrameInfo& info, FrameContext& frame)
                 });
     }
 
-
-    graph.addPass("ImGui")
-        .write(color, RGUsage::WriteColor)
-        .setExecute([this](const RGContext& ctx) {
+    if (m_imguiInitialized) {
+        graph.addPass("ImGui")
+            .write(color, RGUsage::WriteColor)
+            .setExecute([this](const RGContext& ctx) {
             ImGui::Render();
             ImDrawData* draw_data = ImGui::GetDrawData();
             if (draw_data && draw_data->CmdListsCount > 0) {
                 ImGui_ImplVulkan_RenderDrawData(draw_data, ctx.cmd);
             }
-            });
+                });
+    }
+
 
     graph.compile();
     graph.emitPreBarriers(rgCtx);

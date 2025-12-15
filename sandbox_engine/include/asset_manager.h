@@ -18,7 +18,12 @@ namespace Core {
     public:
         AssetManager(VkSandboxDevice& device);
         ~AssetManager();
+
         void preloadGlobalAssets();
+
+        using OBJmodelHandle = std::shared_ptr<VkSandboxOBJmodel>;
+        using GLTFmodelHandle = std::shared_ptr<vkglTF::Model>;
+
         std::shared_ptr<VkSandboxOBJmodel> loadObjModel(const std::string& name, const std::string& filepath, bool isSkybox = false);
         std::shared_ptr<vkglTF::Model> loadGLTFmodel(const std::string& name, const std::string& filepath, uint32_t gltfFlags = 0u, float scale = 1.f);
         std::shared_ptr<VkSandboxTexture> loadCubemap(
@@ -41,11 +46,8 @@ namespace Core {
         void generatePrefilteredEnvMap();
 
 
-
-        using OBJmodelHandle = std::shared_ptr<VkSandboxOBJmodel>;
-        using GLTFmodelHandle = std::shared_ptr<vkglTF::Model>;
-
-        VkDescriptorImageInfo getCubemapDescriptor(const std::string& name) const override {
+        // Inline getters
+        inline VkDescriptorImageInfo getCubemapDescriptor(const std::string& name) const override {
             auto it = m_textures.find(name);
             if (it == m_textures.end()) {
                 throw std::runtime_error("Cubemap not found: " + name);
@@ -53,18 +55,17 @@ namespace Core {
             return it->second->GetDescriptor();
         }
 
-        // Inline getters
-        std::shared_ptr<VkSandboxOBJmodel> getOBJModel(const std::string& name) const {
+        inline std::shared_ptr<VkSandboxOBJmodel> getOBJModel(const std::string& name) const {
             auto it = m_objModelCache.find(name);
             return (it != m_objModelCache.end()) ? it->second : nullptr;
         }
 
-        std::shared_ptr<vkglTF::Model> getGLTFmodel(const std::string& name) const override {
+        inline std::shared_ptr<vkglTF::Model> getGLTFmodel(const std::string& name) const override {
             auto it = m_gltfModelCache.find(name);
             return (it != m_gltfModelCache.end()) ? it->second : nullptr;
         }
 
-        std::shared_ptr<VkSandboxTexture> getTexture(const std::string& name) const {
+        inline std::shared_ptr<VkSandboxTexture> getTexture(const std::string& name) const {
             auto it = m_textures.find(name);
             if (it == m_textures.end()) {
                 throw std::runtime_error("Texture not found: " + name);
@@ -72,14 +73,14 @@ namespace Core {
             return it->second;
         }
 
-        std::shared_ptr<VkSandboxTexture> getTexture(size_t index) const {
+        inline std::shared_ptr<VkSandboxTexture> getTexture(size_t index) const {
             if (index >= m_textureList.size()) {
                 throw std::runtime_error("Texture index out of range: " + std::to_string(index));
             }
             return m_textureList[index];
         }
 
-        size_t getTextureIndex(const std::string& name) const {
+        inline size_t getTextureIndex(const std::string& name) const {
             auto it = m_textureIndexMap.find(name);
             if (it == m_textureIndexMap.end()) {
                 throw std::runtime_error("Texture not found in index map: " + name);
@@ -87,24 +88,25 @@ namespace Core {
             return it->second;
         }
 
-        const std::vector<std::shared_ptr<VkSandboxTexture>>& getAllTextures() const {
+        inline const std::vector<std::shared_ptr<VkSandboxTexture>>& getAllTextures() const {
             return m_textureList;
         }
 
-        bool hasTexture(const std::string& name) const {
+        inline bool hasTexture(const std::string& name) const {
             return m_textures.find(name) != m_textures.end();
         }
 
 
-        VkDescriptorImageInfo getBRDFLUTDescriptor()    const override { return lutBrdf->GetDescriptor(); }
-        VkDescriptorImageInfo getIrradianceDescriptor() const override { return irradianceCube->GetDescriptor(); }
-        VkDescriptorImageInfo getPrefilteredDescriptor() const override { return prefilteredCube->GetDescriptor(); }
+        inline VkDescriptorImageInfo getBRDFLUTDescriptor() const override { return lutBrdf->GetDescriptor(); }
+        inline VkDescriptorImageInfo getIrradianceDescriptor() const override { return irradianceCube->GetDescriptor(); }
+        inline VkDescriptorImageInfo getPrefilteredDescriptor() const override { return prefilteredCube->GetDescriptor(); }
 
-        VkDescriptorImageInfo getTextureDescriptor(const std::string& name) const override {
+        inline VkDescriptorImageInfo getTextureDescriptor(const std::string& name) const override {
             return getTexture(name)->GetDescriptor();
         }
-        GLTFmodelHandle getSkyboxModel() const { return m_skyboxModel; }// make this override if necessary
+        inline GLTFmodelHandle getSkyboxModel() const { return m_skyboxModel; }
 
+        // Misc
         std::vector<std::string> listTextureNames()    const override {
             std::vector<std::string> keys;
             keys.reserve(m_textures.size());
@@ -123,7 +125,7 @@ namespace Core {
         VkSandboxDevice& m_device;
         VkQueue m_transferQueue;
 
-        // caches
+        // Caches
         std::shared_ptr<VkSandboxTexture> lutBrdf, irradianceCube, prefilteredCube, environmentCube;
 
         GLTFmodelHandle m_skyboxModel;

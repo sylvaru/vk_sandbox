@@ -42,13 +42,11 @@ RenderableID EngineSceneBase::createRenderable(
     uint32_t meshIndex,
     uint32_t materialIndex,
     const TransformData& t,
-    const glm::vec3& bsCenter,
-    float bsRadius,
     RenderableType type)
 {
     // Ask the registry to create a new renderable
     RenderableID rid = m_renderRegistry.createInstance(
-        meshIndex, materialIndex, t, bsCenter, bsRadius, type);
+        meshIndex, materialIndex, t, type);
 
     // Track which renderable belongs to which game object
     m_goRenderable[gameObjectId] = rid;

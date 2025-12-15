@@ -13,6 +13,7 @@ public:
     void onInit() override;
     void onUpdate(float dt) override;
     void onDetach() override {}
+    bool isAttached() override { return m_isAttached; }
 
     IScene* getSceneInterface() override;
 private:
@@ -20,5 +21,5 @@ private:
     std::unique_ptr<SandboxScene> m_scene;
     IWindow*     m_window;
     Core::AssetManager* m_assetManager = nullptr;
-
+    bool m_isAttached;
 };

@@ -13,6 +13,7 @@ public:
     void onUpdate(float dt) override;
     void onRender(ISandboxRenderer::FrameContext& frame) override;
     void onDetach() override {}
+    bool isAttached() override { return m_isAttached; }
 
     IScene* getSceneInterface() override;
 private:
@@ -20,5 +21,6 @@ private:
     IWindow* m_window;
     Core::AssetManager* m_assetManager = nullptr;
     VkSandboxRenderer* m_prenderer = nullptr;
+    bool m_isAttached;
 
 };

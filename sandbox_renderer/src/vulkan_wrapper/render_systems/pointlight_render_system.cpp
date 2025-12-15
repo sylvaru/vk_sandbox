@@ -69,7 +69,6 @@ void PointLightRenderSystem::render(FrameInfo& frame) {
         glm::vec3 position = glm::vec3(inst->transform.model[3]);
         push.position = glm::vec4(position, 1.0f);
         push.color = glm::vec4(inst->emissiveColor, inst->intensity);
-        push.radius = inst->boundingSphereRadius;
 
         vkCmdPushConstants(
             cmd,

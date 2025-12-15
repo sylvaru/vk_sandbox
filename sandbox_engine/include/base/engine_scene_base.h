@@ -33,8 +33,8 @@ public:
     std::optional<std::reference_wrapper<IGameObject>>
         getSkyboxObject() const override;
 
-    void setPhysicsEngine(std::unique_ptr<PhysicsEngine> physics) { m_physicsEngine = std::move(physics); }
-    PhysicsEngine* getPhysicsEngine() const { return m_physicsEngine.get(); }
+    void setPhysicsEngine(PhysicsEngine* physics) { m_physicsEngine = physics; }
+    PhysicsEngine* getPhysicsEngine() const { return m_physicsEngine; }
 
     void initPhysics() { m_physicsEngine->initPhysx(); }
 
@@ -52,8 +52,6 @@ protected:
         uint32_t meshIndex,
         uint32_t materialIndex,
         const TransformData& t,
-        const glm::vec3& bsCenter,
-        float bsRadius,
         RenderableType type);
 
     void removeRenderable(uint32_t gameObjectId);
@@ -67,7 +65,7 @@ protected:
     std::shared_ptr<IGameObject>       m_skyboxObject;
     std::string                        m_skyboxCubemapName = "skybox_hdr";
 
-    std::unique_ptr<PhysicsEngine> m_physicsEngine;
+    PhysicsEngine* m_physicsEngine = nullptr;
 
     std::unordered_set<int> m_playerIds;
     Core::AssetManager* m_assetManager;

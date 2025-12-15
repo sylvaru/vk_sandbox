@@ -41,10 +41,6 @@ struct MeshInstance {
     uint32_t meshIndex;
     uint32_t materialIndex;
     TransformData transform;
-    float boundingSphereRadius;
-    glm::vec3 boundingSphereCenterModelSpace; // object-space center
-    glm::vec3 aabbMinWorld;
-	glm::vec3 aabbMaxWorld;
     RenderableType type = RenderableType::None;
     vkglTF::Model* model = nullptr;
     glm::vec3 emissiveColor{ 1.0f };

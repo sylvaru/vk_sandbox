@@ -91,7 +91,6 @@ void GLFWwindowAndInput::initGLFW(
 }
 
 // Window API
-
 void GLFWwindowAndInput::pollEvents() {
     glfwPollEvents();
 }
@@ -112,8 +111,16 @@ void GLFWwindowAndInput::getFramebufferSize(int& width, int& height) const {
     glfwGetFramebufferSize(m_window, &width, &height);
 }
 
-// Input API
+void GLFWwindowAndInput::setUserPointer(void* ptr) {
+    glfwSetWindowUserPointer(m_window, ptr);
+}
 
+void* GLFWwindowAndInput::getWindowUserPointer() const {
+    return glfwGetWindowUserPointer(m_window);
+}
+
+
+// Input API
 void GLFWwindowAndInput::lockCursor(bool lock) {
     m_cursorLocked = lock;
     glfwSetInputMode(
@@ -140,11 +147,13 @@ void GLFWwindowAndInput::consumeMouseDelta(double& dx, double& dy) {
     m_accumDY = 0.0;
 }
 
+
+
+// Callbacks
+
 void GLFWwindowAndInput::setKeyCallback(SandboxKeyCallback callback) {
     m_keyCallback = std::move(callback);
 }
-
-// Callbacks
 
 void GLFWwindowAndInput::framebufferResizeCallback(GLFWwindow* window, int w, int h) {
     auto* self = static_cast<GLFWwindowAndInput*>(glfwGetWindowUserPointer(window));
@@ -191,17 +200,6 @@ void GLFWwindowAndInput::keyCallback(
 
     self->m_keyCallback(sandboxKey, scancode, sandboxAction, mods);
 }
-
-void GLFWwindowAndInput::setUserPointer(void* ptr) {
-    glfwSetWindowUserPointer(m_window, ptr);
-}
-
-void* GLFWwindowAndInput::getWindowUserPointer() const {
-    return glfwGetWindowUserPointer(m_window);
-}
-
-
-// Key mapping
 
 int GLFWwindowAndInput::mapKeyToGLFW(SandboxKey key) const {
     switch (key) {

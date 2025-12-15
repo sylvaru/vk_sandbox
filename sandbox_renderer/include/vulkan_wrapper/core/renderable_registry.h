@@ -12,12 +12,10 @@ struct MeshInfo {
     VkDeviceSize indexOffset;
     uint32_t indexCount;
     VkIndexType indexType;
-    // primitive info etc.
 };
 
 struct MaterialInfo {
-    uint32_t materialIndex; // user-defined material index (maps to descriptors)
-    // other material runtime info
+    uint32_t materialIndex;
 };
 
 class RenderableRegistry {
@@ -35,7 +33,6 @@ public:
         uint32_t meshIndex,
         uint32_t materialIndex,
         const TransformData& transform,
-        const glm::vec3& bsCenter, float bsRadius,
         RenderableType type
     );
 
@@ -60,7 +57,7 @@ public:
         }
     }
 
-    // Give access to lists for culling (thread-safe if needed)
+    // Give access to lists for culling
     size_t instanceCount() const { return m_instances.size(); }
 
     // Map from RenderableID -> index inside pools for quick lookup
@@ -82,7 +79,7 @@ private:
 
     // ID -> dense index mapping
     std::vector<RenderableID> m_idToIndex;
-    std::vector<RenderableID> m_freeList; // free indices
+    std::vector<RenderableID> m_freeList;
     RenderableID m_nextId{ 0 };
 
     mutable std::mutex m_mutex; // simple thread-safety

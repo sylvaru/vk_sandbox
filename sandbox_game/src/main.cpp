@@ -8,7 +8,7 @@ int main()
 {
     Core::EngineSpecification engineSpec;
     engineSpec.name = "A Space In Time";
-    engineSpec.windowSpec.mode = WindowMode::BorderlessFullscreen;
+    engineSpec.windowSpec.mode = WindowMode::Windowed;
     Core::SandboxEngine engine(engineSpec);
 
     engine.pushLayer<MyGameLayer>();
@@ -16,6 +16,5 @@ int main()
     engine.initialize();
     engine.runApp();
 
-    return 0;
 }
 

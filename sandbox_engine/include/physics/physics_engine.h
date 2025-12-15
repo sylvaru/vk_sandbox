@@ -1,5 +1,6 @@
 #pragma once
 #include <memory>
+#include <iostream>
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
 #include <unordered_map>
@@ -17,8 +18,12 @@ struct CollisionMeshData {
 
 class PhysicsEngine {
 public:
-    PhysicsEngine() {}
+    PhysicsEngine() = default;
     ~PhysicsEngine();
+    PhysicsEngine(const PhysicsEngine&) = delete;
+    PhysicsEngine& operator=(const PhysicsEngine&) = delete;
+    PhysicsEngine(PhysicsEngine&&) = delete;
+    PhysicsEngine& operator=(PhysicsEngine&&) = delete;
 
     void initPhysx();
     void stepSimulation(float deltaTime);
@@ -45,13 +50,10 @@ private:
     physx::PxScene* m_scene = nullptr;
     physx::PxDefaultCpuDispatcher* m_dispatcher = nullptr;
 
-
     physx::PxControllerManager* m_controllerMgr = nullptr;
     physx::PxCapsuleController* m_fpsController = nullptr;
 
-
     physx::PxMaterial* m_defaultMaterial = nullptr;
-
 
     physx::PxDefaultAllocator m_allocator;
     physx::PxDefaultErrorCallback m_errorCallback;
